@@ -1,7 +1,7 @@
 from flask import Flask
 
 from config import Config
-from .extensions import db, login_manager, socketio
+from .extensions import db, login_manager, socketio, migrate
 
 
 def create_app():
@@ -10,6 +10,7 @@ def create_app():
 
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     socketio.init_app(app)
 
