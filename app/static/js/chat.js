@@ -13,6 +13,8 @@ let currentUser = null;
 let selectedUser = null;
 let onlineUserIds = new Set();
 let unreadCounts = new Map();
+let typingTimeout = null;
+let typingSent = false;
 
 const socket = io();
 
@@ -290,6 +292,51 @@ function refreshPresenceDisplay() {
 }
 
 
+function sendTypingStatus(isTyping) {
+    console.log("Sending typing event:", isTyping, "to:", selectedUser?.id);
+    if (!selectedUser || !socket.connected) {
+        return;
+    }
+
+    socket.emit("typing", {
+        receiver_id: selectedUser.id,
+        is_typing: isTyping
+    });
+}
+
+
+messageInput.addEventListener("input", () => {
+    if (!selectedUser) {
+        return;
+    }
+
+    const hasText = messageInput.value.trim().length > 0;
+
+    if (hasText && !typingSent) {
+        typingSent = true;
+        sendTypingStatus(true);
+    }
+
+    clearTimeout(typingTimeout);
+
+    if (!hasText) {
+        if (typingSent) {
+            typingSent = false;
+            sendTypingStatus(false);
+        }
+
+        return;
+    }
+
+    typingTimeout = setTimeout(() => {
+        if (typingSent) {
+            typingSent = false;
+            sendTypingStatus(false);
+        }
+    }, 3000);
+});
+
+
 messageForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
@@ -301,6 +348,12 @@ messageForm.addEventListener("submit", (event) => {
 
     if (!content) {
         return;
+    }
+
+    if (typingSent) {
+        typingSent = false;
+        clearTimeout(typingTimeout);
+        sendTypingStatus(false);
     }
 
     socket.emit("send_message", {
@@ -342,6 +395,26 @@ socket.on("user_status", (data) => {
         selectedUser &&
         Number(selectedUser.id) === userId
     ) {
+        updateConversationStatus();
+    }
+});
+
+
+socket.on("typing_status", (data) => {
+    console.log("Received typing status:", data);
+    if (
+        !selectedUser ||
+        Number(data.user_id) !== Number(selectedUser.id)
+    ) {
+        return;
+    }
+
+    if (data.is_typing) {
+        conversationStatusElement.textContent =
+            `${data.username} is typing...`;
+
+        conversationStatusElement.classList.remove("online");
+    } else {
         updateConversationStatus();
     }
 });

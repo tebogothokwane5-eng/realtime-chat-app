@@ -181,6 +181,34 @@ def socket_connect():
     )
 
 
+@socketio.on("typing")
+def socket_typing(data):
+    if not current_user.is_authenticated:
+        return
+
+    data = data or {}
+
+    try:
+        receiver_id = int(data.get("receiver_id"))
+    except (TypeError, ValueError):
+        return
+
+    if receiver_id == current_user.id:
+        return
+
+    is_typing = bool(data.get("is_typing"))
+
+    emit(
+        "typing_status",
+        {
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "is_typing": is_typing
+        },
+        to=f"user_{receiver_id}"
+    )
+
+
 @socketio.on("send_message")
 def socket_send_message(data):
     if not current_user.is_authenticated:
