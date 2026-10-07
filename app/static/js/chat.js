@@ -56,6 +56,14 @@ async function loadUsers() {
     }
 
     data.users.forEach((user) => {
+        const unreadCount = Number(user.unread_count) || 0;
+
+        if (unreadCount > 0) {
+            unreadCounts.set(Number(user.id), unreadCount);
+        } else {
+            unreadCounts.delete(Number(user.id));
+        }
+
         const userElement = document.createElement("div");
 
         userElement.className = "user-item";
@@ -122,6 +130,7 @@ async function loadUsers() {
         });
 
         usersListElement.appendChild(userElement);
+        updateUnreadBadge(user.id);
     });
 }
 

@@ -41,10 +41,21 @@ def users():
             .first()
         )
 
+        unread_count = (
+            Message.query
+            .filter(
+                Message.sender_id == user.id,
+                Message.receiver_id == current_user.id,
+                Message.read_at.is_(None)
+            )
+            .count()
+        )
+
         users_data.append({
             "id": user.id,
             "username": user.username,
             "email": user.email,
+            "unread_count": unread_count,
             "last_message": (
                 last_message.content
                 if last_message
