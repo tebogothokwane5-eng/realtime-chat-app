@@ -12,6 +12,7 @@ const logoutButton = document.getElementById("logout-button");
 let currentUser = null;
 let selectedUser = null;
 let onlineUserIds = new Set();
+let unreadCounts = new Map();
 
 const socket = io();
 
@@ -58,9 +59,20 @@ async function loadUsers() {
         userElement.className = "user-item";
         userElement.dataset.userId = user.id;
 
+        const nameRow = document.createElement("div");
+        nameRow.className = "user-item-name-row";
+
         const nameElement = document.createElement("div");
         nameElement.className = "user-item-name";
         nameElement.textContent = user.username;
+
+        const unreadBadge = document.createElement("span");
+        unreadBadge.className = "unread-badge";
+        unreadBadge.dataset.unreadUserId = user.id;
+        unreadBadge.hidden = true;
+
+        nameRow.appendChild(nameElement);
+        nameRow.appendChild(unreadBadge);
 
         const emailElement = document.createElement("div");
         emailElement.className = "user-item-email";
@@ -70,7 +82,7 @@ async function loadUsers() {
         statusElement.className = "user-item-status";
         statusElement.dataset.statusUserId = user.id;
 
-        userElement.appendChild(nameElement);
+        userElement.appendChild(nameRow);
         userElement.appendChild(emailElement);
         userElement.appendChild(statusElement);
 
@@ -87,6 +99,8 @@ async function loadUsers() {
 
 async function selectUser(user, userElement) {
     selectedUser = user;
+
+    clearUnread(user.id);
 
     document.querySelectorAll(".user-item").forEach((element) => {
         element.classList.remove("active");
@@ -191,6 +205,45 @@ function formatTime(timestamp) {
 
 function scrollToBottom() {
     messagesElement.scrollTop = messagesElement.scrollHeight;
+}
+
+
+function incrementUnread(userId) {
+    userId = Number(userId);
+
+    const count = (unreadCounts.get(userId) || 0) + 1;
+    unreadCounts.set(userId, count);
+
+    updateUnreadBadge(userId);
+}
+
+
+function clearUnread(userId) {
+    userId = Number(userId);
+
+    unreadCounts.delete(userId);
+    updateUnreadBadge(userId);
+}
+
+
+function updateUnreadBadge(userId) {
+    const badge = document.querySelector(
+        `[data-unread-user-id="${userId}"]`
+    );
+
+    if (!badge) {
+        return;
+    }
+
+    const count = unreadCounts.get(Number(userId)) || 0;
+
+    if (count > 0) {
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.hidden = false;
+    } else {
+        badge.textContent = "";
+        badge.hidden = true;
+    }
 }
 
 
@@ -307,10 +360,13 @@ socket.on("message_sent", (message) => {
 socket.on("new_message", (message) => {
     if (
         selectedUser &&
-        message.sender_id === selectedUser.id
+        Number(message.sender_id) === Number(selectedUser.id)
     ) {
         renderMessage(message);
+        return;
     }
+
+    incrementUnread(message.sender_id);
 });
 
 

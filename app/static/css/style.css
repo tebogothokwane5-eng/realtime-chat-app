@@ -397,3 +397,29 @@ button:hover {
     color: #22a447;
     font-weight: 600;
 }
+
+/* Unread message badge */
+.user-item-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.unread-badge {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.unread-badge[hidden] {
+    display: none;
+}
