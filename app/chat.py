@@ -20,15 +20,50 @@ def users():
         .all()
     )
 
+    users_data = []
+
+    for user in users:
+        last_message = (
+            Message.query
+            .filter(
+                or_(
+                    and_(
+                        Message.sender_id == current_user.id,
+                        Message.receiver_id == user.id
+                    ),
+                    and_(
+                        Message.sender_id == user.id,
+                        Message.receiver_id == current_user.id
+                    )
+                )
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .first()
+        )
+
+        users_data.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "last_message": (
+                last_message.content
+                if last_message
+                else None
+            ),
+            "last_message_at": (
+                last_message.created_at.isoformat()
+                if last_message
+                else None
+            ),
+            "last_message_sender_id": (
+                last_message.sender_id
+                if last_message
+                else None
+            )
+        })
+
     return jsonify({
-        "users": [
-            {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email
-            }
-            for user in users
-        ]
+        "users": users_data
     }), 200
 
 

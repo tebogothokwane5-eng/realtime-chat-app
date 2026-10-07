@@ -76,16 +76,43 @@ async function loadUsers() {
         nameRow.appendChild(nameElement);
         nameRow.appendChild(unreadBadge);
 
-        const emailElement = document.createElement("div");
-        emailElement.className = "user-item-email";
-        emailElement.textContent = user.email;
+        const previewRow = document.createElement("div");
+        previewRow.className = "user-preview-row";
+
+        const previewElement = document.createElement("div");
+        previewElement.className = "user-message-preview";
+        previewElement.dataset.previewUserId = user.id;
+
+        if (user.last_message) {
+            const prefix =
+                Number(user.last_message_sender_id) === Number(currentUser.id)
+                    ? "You: "
+                    : "";
+
+            previewElement.textContent =
+                `${prefix}${user.last_message}`;
+        } else {
+            previewElement.textContent = "No messages yet";
+        }
+
+        const timeElement = document.createElement("span");
+        timeElement.className = "user-message-time";
+        timeElement.dataset.previewTimeUserId = user.id;
+
+        if (user.last_message_at) {
+            timeElement.textContent =
+                formatSidebarTime(user.last_message_at);
+        }
+
+        previewRow.appendChild(previewElement);
+        previewRow.appendChild(timeElement);
 
         const statusElement = document.createElement("div");
         statusElement.className = "user-item-status";
         statusElement.dataset.statusUserId = user.id;
 
         userElement.appendChild(nameRow);
-        userElement.appendChild(emailElement);
+        userElement.appendChild(previewRow);
         userElement.appendChild(statusElement);
 
         updateUserStatus(user.id);
@@ -244,6 +271,49 @@ function updateReadReceipts(messageIds) {
 
         receipt.textContent = "✓✓ Read";
         receipt.classList.add("read");
+    });
+}
+
+
+function updateConversationPreview(message) {
+    if (!currentUser || !message) {
+        return;
+    }
+
+    const isOutgoing =
+        Number(message.sender_id) === Number(currentUser.id);
+
+    const otherUserId = isOutgoing
+        ? Number(message.receiver_id)
+        : Number(message.sender_id);
+
+    const previewElement = document.querySelector(
+        `[data-preview-user-id="${otherUserId}"]`
+    );
+
+    const timeElement = document.querySelector(
+        `[data-preview-time-user-id="${otherUserId}"]`
+    );
+
+    if (previewElement) {
+        const prefix = isOutgoing ? "You: " : "";
+        previewElement.textContent =
+            `${prefix}${message.content}`;
+    }
+
+    if (timeElement && message.created_at) {
+        timeElement.textContent =
+            formatSidebarTime(message.created_at);
+    }
+}
+
+
+function formatSidebarTime(timestamp) {
+    const date = new Date(timestamp);
+
+    return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
     });
 }
 
@@ -480,6 +550,8 @@ socket.on("typing_status", (data) => {
 
 
 socket.on("message_sent", (message) => {
+    updateConversationPreview(message);
+
     if (
         selectedUser &&
         message.receiver_id === selectedUser.id
@@ -490,6 +562,8 @@ socket.on("message_sent", (message) => {
 
 
 socket.on("new_message", (message) => {
+    updateConversationPreview(message);
+
     if (
         selectedUser &&
         Number(message.sender_id) === Number(selectedUser.id)

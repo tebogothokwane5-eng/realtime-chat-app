@@ -443,3 +443,28 @@ button:hover {
     font-weight: 600;
     opacity: 1;
 }
+
+/* Sidebar conversation preview */
+.user-preview-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.user-message-preview {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    opacity: 0.75;
+}
+
+.user-message-time {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    opacity: 0.65;
+}
