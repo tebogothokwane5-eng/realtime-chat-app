@@ -380,3 +380,20 @@ button:hover {
         min-width: 65px;
     }
 }
+
+/* Online / offline presence */
+.user-item-status {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: #8a8a8a;
+}
+
+.user-item-status.online {
+    color: #22a447;
+    font-weight: 600;
+}
+
+#conversation-status.online {
+    color: #22a447;
+    font-weight: 600;
+}

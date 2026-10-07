@@ -138,18 +138,46 @@ from flask_socketio import join_room, emit
 from .extensions import socketio
 
 
+# Number of active Socket.IO connections for each user.
+# This prevents a user with multiple browser tabs from being
+# marked offline when only one tab disconnects.
+online_users = {}
+
+
 @socketio.on("connect")
 def socket_connect():
     if not current_user.is_authenticated:
         return False
 
+    user_id = current_user.id
+
     # Every authenticated user gets a private room.
-    room = f"user_{current_user.id}"
+    room = f"user_{user_id}"
     join_room(room)
+
+    online_users[user_id] = online_users.get(user_id, 0) + 1
+
+    # Tell connected clients that this user is online.
+    emit(
+        "user_status",
+        {
+            "user_id": user_id,
+            "status": "online"
+        },
+        broadcast=True
+    )
+
+    # Give this newly connected client the current online-user list.
+    emit(
+        "online_users",
+        {
+            "user_ids": list(online_users.keys())
+        }
+    )
 
     print(
         f"Socket connected: {current_user.username} "
-        f"(user {current_user.id})"
+        f"(user {user_id})"
     )
 
 
@@ -228,8 +256,27 @@ def socket_send_message(data):
 
 @socketio.on("disconnect")
 def socket_disconnect():
-    if current_user.is_authenticated:
-        print(
-            f"Socket disconnected: {current_user.username} "
-            f"(user {current_user.id})"
-        )
+    if not current_user.is_authenticated:
+        return
+
+    user_id = current_user.id
+
+    if user_id in online_users:
+        online_users[user_id] -= 1
+
+        if online_users[user_id] <= 0:
+            del online_users[user_id]
+
+            emit(
+                "user_status",
+                {
+                    "user_id": user_id,
+                    "status": "offline"
+                },
+                broadcast=True
+            )
+
+    print(
+        f"Socket disconnected: {current_user.username} "
+        f"(user {user_id})"
+    )

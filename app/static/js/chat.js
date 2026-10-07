@@ -11,6 +11,7 @@ const logoutButton = document.getElementById("logout-button");
 
 let currentUser = null;
 let selectedUser = null;
+let onlineUserIds = new Set();
 
 const socket = io();
 
@@ -65,8 +66,15 @@ async function loadUsers() {
         emailElement.className = "user-item-email";
         emailElement.textContent = user.email;
 
+        const statusElement = document.createElement("div");
+        statusElement.className = "user-item-status";
+        statusElement.dataset.statusUserId = user.id;
+
         userElement.appendChild(nameElement);
         userElement.appendChild(emailElement);
+        userElement.appendChild(statusElement);
+
+        updateUserStatus(user.id);
 
         userElement.addEventListener("click", () => {
             selectUser(user, userElement);
@@ -87,7 +95,7 @@ async function selectUser(user, userElement) {
     userElement.classList.add("active");
 
     conversationNameElement.textContent = user.username;
-    conversationStatusElement.textContent = user.email;
+    updateConversationStatus();
 
     messageInput.disabled = false;
     sendButton.disabled = false;
@@ -186,6 +194,49 @@ function scrollToBottom() {
 }
 
 
+function updateUserStatus(userId) {
+    const statusElement = document.querySelector(
+        `[data-status-user-id="${userId}"]`
+    );
+
+    if (!statusElement) {
+        return;
+    }
+
+    if (onlineUserIds.has(Number(userId))) {
+        statusElement.textContent = "● Online";
+        statusElement.classList.add("online");
+    } else {
+        statusElement.textContent = "○ Offline";
+        statusElement.classList.remove("online");
+    }
+}
+
+
+function updateConversationStatus() {
+    if (!selectedUser) {
+        return;
+    }
+
+    if (onlineUserIds.has(Number(selectedUser.id))) {
+        conversationStatusElement.textContent = "● Online";
+        conversationStatusElement.classList.add("online");
+    } else {
+        conversationStatusElement.textContent = "○ Offline";
+        conversationStatusElement.classList.remove("online");
+    }
+}
+
+
+function refreshPresenceDisplay() {
+    document.querySelectorAll("[data-status-user-id]").forEach((element) => {
+        updateUserStatus(Number(element.dataset.statusUserId));
+    });
+
+    updateConversationStatus();
+}
+
+
 messageForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
@@ -211,6 +262,35 @@ messageForm.addEventListener("submit", (event) => {
 
 socket.on("connect", () => {
     console.log("Socket.IO connected.");
+});
+
+
+socket.on("online_users", (data) => {
+    onlineUserIds = new Set(
+        (data.user_ids || []).map(Number)
+    );
+
+    refreshPresenceDisplay();
+});
+
+
+socket.on("user_status", (data) => {
+    const userId = Number(data.user_id);
+
+    if (data.status === "online") {
+        onlineUserIds.add(userId);
+    } else {
+        onlineUserIds.delete(userId);
+    }
+
+    updateUserStatus(userId);
+
+    if (
+        selectedUser &&
+        Number(selectedUser.id) === userId
+    ) {
+        updateConversationStatus();
+    }
 });
 
 
