@@ -29,13 +29,16 @@ def users():
                 or_(
                     and_(
                         Message.sender_id == current_user.id,
-                        Message.receiver_id == user.id
+                        Message.receiver_id == user.id,
+                        Message.deleted_for_sender_at.is_(None)
                     ),
                     and_(
                         Message.sender_id == user.id,
-                        Message.receiver_id == current_user.id
+                        Message.receiver_id == current_user.id,
+                        Message.deleted_for_receiver_at.is_(None)
                     )
-                )
+                ),
+                Message.deleted_for_everyone_at.is_(None)
             )
             .order_by(Message.created_at.desc(), Message.id.desc())
             .first()
@@ -46,7 +49,9 @@ def users():
             .filter(
                 Message.sender_id == user.id,
                 Message.receiver_id == current_user.id,
-                Message.read_at.is_(None)
+                Message.read_at.is_(None),
+                Message.deleted_for_receiver_at.is_(None),
+                Message.deleted_for_everyone_at.is_(None)
             )
             .count()
         )
@@ -147,13 +152,16 @@ def conversation(user_id):
             or_(
                 and_(
                     Message.sender_id == current_user.id,
-                    Message.receiver_id == user_id
+                    Message.receiver_id == user_id,
+                    Message.deleted_for_sender_at.is_(None)
                 ),
                 and_(
                     Message.sender_id == user_id,
-                    Message.receiver_id == current_user.id
+                    Message.receiver_id == current_user.id,
+                    Message.deleted_for_receiver_at.is_(None)
                 )
-            )
+            ),
+            Message.deleted_for_everyone_at.is_(None)
         )
         .order_by(Message.created_at.asc(), Message.id.asc())
         .all()
@@ -393,6 +401,100 @@ def socket_send_message(data):
     emit(
         "message_sent",
         message_data
+    )
+
+
+@socketio.on("delete_message")
+def socket_delete_message(data):
+    if not current_user.is_authenticated:
+        emit("delete_message_error", {
+            "error": "Authentication required."
+        })
+        return
+
+    data = data or {}
+
+    try:
+        message_id = int(data.get("message_id"))
+    except (TypeError, ValueError):
+        emit("delete_message_error", {
+            "error": "Invalid message ID."
+        })
+        return
+
+    delete_type = data.get("delete_type")
+
+    if delete_type not in ("me", "everyone"):
+        emit("delete_message_error", {
+            "error": "Invalid deletion type."
+        })
+        return
+
+    message = db.session.get(Message, message_id)
+
+    if message is None:
+        emit("delete_message_error", {
+            "error": "Message not found."
+        })
+        return
+
+    is_sender = message.sender_id == current_user.id
+    is_receiver = message.receiver_id == current_user.id
+
+    # A user outside this conversation cannot delete the message.
+    if not is_sender and not is_receiver:
+        emit("delete_message_error", {
+            "error": "You cannot delete this message."
+        })
+        return
+
+    deleted_at = datetime.now(timezone.utc)
+
+    if delete_type == "everyone":
+        # Only the original sender may delete for everyone.
+        if not is_sender:
+            emit("delete_message_error", {
+                "error": "Only the sender can delete for everyone."
+            })
+            return
+
+        message.deleted_for_everyone_at = deleted_at
+        db.session.commit()
+
+        deletion_data = {
+            "message_id": message.id,
+            "delete_type": "everyone"
+        }
+
+        # Remove it immediately for the receiver.
+        emit(
+            "message_deleted",
+            deletion_data,
+            to=f"user_{message.receiver_id}"
+        )
+
+        # Remove it immediately for the sender.
+        emit(
+            "message_deleted",
+            deletion_data
+        )
+
+        return
+
+    # Delete only from the current user's view.
+    if is_sender:
+        message.deleted_for_sender_at = deleted_at
+    else:
+        message.deleted_for_receiver_at = deleted_at
+
+    db.session.commit()
+
+    emit(
+        "message_deleted",
+        {
+            "message_id": message.id,
+            "delete_type": "me"
+        }
     )
 
 

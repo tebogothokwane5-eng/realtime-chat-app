@@ -82,6 +82,21 @@ class Message(db.Model):
         nullable=True
     )
 
+    deleted_for_sender_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True
+    )
+
+    deleted_for_receiver_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True
+    )
+
+    deleted_for_everyone_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True
+    )
+
     sender = db.relationship(
         "User",
         foreign_keys=[sender_id],

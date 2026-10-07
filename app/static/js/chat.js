@@ -247,10 +247,136 @@ function renderMessage(message) {
     bubble.appendChild(meta);
     row.appendChild(bubble);
 
+    bubble.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+
+        showMessageContextMenu(
+            message,
+            event.clientX,
+            event.clientY
+        );
+    });
+
+    let longPressTimer = null;
+
+    const cancelLongPress = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+
+    bubble.addEventListener("touchstart", (event) => {
+        const touch = event.touches[0];
+
+        if (!touch) {
+            return;
+        }
+
+        const x = touch.clientX;
+        const y = touch.clientY;
+
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            showMessageContextMenu(message, x, y);
+        }, 600);
+    }, { passive: true });
+
+    bubble.addEventListener("touchend", cancelLongPress);
+    bubble.addEventListener("touchcancel", cancelLongPress);
+    bubble.addEventListener("touchmove", cancelLongPress);
+
     messagesElement.appendChild(row);
 
     scrollToBottom();
 }
+
+
+function closeMessageContextMenu() {
+    const existingMenu = document.querySelector(
+        ".message-context-menu"
+    );
+
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+}
+
+
+function showMessageContextMenu(message, x, y) {
+    closeMessageContextMenu();
+
+    const menu = document.createElement("div");
+    menu.className = "message-context-menu";
+
+    const deleteForMe = document.createElement("button");
+    deleteForMe.type = "button";
+    deleteForMe.textContent = "Delete for me";
+
+    deleteForMe.addEventListener("click", () => {
+        socket.emit("delete_message", {
+            message_id: message.id,
+            delete_type: "me"
+        });
+
+        closeMessageContextMenu();
+    });
+
+    menu.appendChild(deleteForMe);
+
+    const isSender =
+        Number(message.sender_id) === Number(currentUser.id);
+
+    if (isSender) {
+        const deleteForEveryone =
+            document.createElement("button");
+
+        deleteForEveryone.type = "button";
+        deleteForEveryone.textContent =
+            "Delete for everyone";
+        deleteForEveryone.className =
+            "delete-for-everyone";
+
+        deleteForEveryone.addEventListener("click", () => {
+            socket.emit("delete_message", {
+                message_id: message.id,
+                delete_type: "everyone"
+            });
+
+            closeMessageContextMenu();
+        });
+
+        menu.appendChild(deleteForEveryone);
+    }
+
+    document.body.appendChild(menu);
+
+    const menuRect = menu.getBoundingClientRect();
+
+    const left = Math.min(
+        x,
+        window.innerWidth - menuRect.width - 8
+    );
+
+    const top = Math.min(
+        y,
+        window.innerHeight - menuRect.height - 8
+    );
+
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.top = `${Math.max(8, top)}px`;
+}
+
+
+document.addEventListener("click", (event) => {
+    if (!event.target.closest(".message-context-menu")) {
+        closeMessageContextMenu();
+    }
+});
+
+
+window.addEventListener("resize", closeMessageContextMenu);
+window.addEventListener("scroll", closeMessageContextMenu, true);
 
 
 function markConversationRead(userId) {
@@ -588,6 +714,32 @@ socket.on("new_message", (message) => {
 
 socket.on("messages_read", (data) => {
     updateReadReceipts(data.message_ids);
+});
+
+
+socket.on("message_deleted", (data) => {
+    const messageElement = document.querySelector(
+        `[data-message-id="${data.message_id}"]`
+    );
+
+    if (messageElement) {
+        messageElement.remove();
+    }
+
+    if (messagesElement.children.length === 0) {
+        messagesElement.innerHTML =
+            '<p class="empty-text">No messages yet.</p>';
+    }
+
+    // Refresh sidebar previews and persistent unread counts.
+    loadUsers();
+});
+
+
+socket.on("delete_message_error", (data) => {
+    window.alert(
+        data.error || "Could not delete the message."
+    );
 });
 
 

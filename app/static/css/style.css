@@ -268,31 +268,60 @@ button:hover {
 }
 
 .message-bubble {
+    position: relative;
     max-width: 70%;
-    padding: 10px 14px;
-    border-radius: 16px;
-    line-height: 1.4;
+    padding: 12px 15px 10px;
+    line-height: 1.45;
     word-break: break-word;
+    border-radius: 10px;
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+    -webkit-touch-callout: none;
 }
 
+.message-bubble:hover {
+    transform: translateY(-1px);
+}
+
+/* Sent message: asymmetric clipped card */
 .message-row.sent .message-bubble {
-    background: #2563eb;
+    background: #3346a8;
     color: #ffffff;
-    border-bottom-right-radius: 4px;
+    border-radius: 12px 3px 12px 12px;
+    box-shadow: 0 3px 10px rgba(51, 70, 168, 0.18);
 }
 
+/* Small geometric signature on sent messages */
+.message-row.sent .message-bubble::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-top: 3px solid rgba(255, 255, 255, 0.35);
+    border-right: 3px solid rgba(255, 255, 255, 0.35);
+    border-radius: 0 3px 0 8px;
+    pointer-events: none;
+}
+
+/* Received message: neutral card with accent rail */
 .message-row.received .message-bubble {
-    background: #ffffff;
+    background: #f8fafc;
     color: #1f2937;
-    border: 1px solid #e5e7eb;
-    border-bottom-left-radius: 4px;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #64748b;
+    border-radius: 3px 12px 12px 12px;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
 }
 
 .message-time {
     display: block;
-    margin-top: 5px;
-    font-size: 11px;
-    opacity: 0.7;
+    margin-top: 6px;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    opacity: 0.65;
 }
 
 
@@ -467,4 +496,56 @@ button:hover {
     flex-shrink: 0;
     font-size: 0.72rem;
     opacity: 0.65;
+}
+
+/* Message action menu: right-click / long-press */
+.message-context-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 190px;
+    padding: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow:
+        0 14px 35px rgba(15, 23, 42, 0.16),
+        0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.message-context-menu button {
+    display: block;
+    width: 100%;
+    padding: 11px 13px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #334155;
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.message-context-menu button:hover {
+    background: #f1f5f9;
+}
+
+.message-context-menu .delete-for-everyone {
+    color: #dc2626;
+}
+
+.message-context-menu .delete-for-everyone:hover {
+    background: #fef2f2;
+}
+
+@media (max-width: 700px) {
+    .message-context-menu {
+        min-width: 210px;
+        padding: 7px;
+    }
+
+    .message-context-menu button {
+        padding: 13px 14px;
+        font-size: 0.95rem;
+    }
 }
