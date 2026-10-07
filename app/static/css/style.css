@@ -423,3 +423,23 @@ button:hover {
 .unread-badge[hidden] {
     display: none;
 }
+
+/* Message read receipts */
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    margin-top: 4px;
+}
+
+.message-receipt {
+    font-size: 0.72rem;
+    white-space: nowrap;
+    opacity: 0.75;
+}
+
+.message-receipt.read {
+    font-weight: 600;
+    opacity: 1;
+}

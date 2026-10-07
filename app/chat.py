@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy import or_, and_
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
@@ -123,7 +124,12 @@ def conversation(user_id):
                 "sender_id": message.sender_id,
                 "receiver_id": message.receiver_id,
                 "content": message.content,
-                "created_at": message.created_at.isoformat()
+                "created_at": message.created_at.isoformat(),
+                "read_at": (
+                    message.read_at.isoformat()
+                    if message.read_at
+                    else None
+                )
             }
             for message in messages
         ]
@@ -178,6 +184,63 @@ def socket_connect():
     print(
         f"Socket connected: {current_user.username} "
         f"(user {user_id})"
+    )
+
+
+@socketio.on("mark_read")
+def socket_mark_read(data):
+    if not current_user.is_authenticated:
+        return
+
+    data = data or {}
+
+    try:
+        sender_id = int(data.get("sender_id"))
+    except (TypeError, ValueError):
+        return
+
+    if sender_id == current_user.id:
+        return
+
+    # Mark unread messages sent by this user to the current user.
+    messages = db.session.execute(
+        db.select(Message).where(
+            Message.sender_id == sender_id,
+            Message.receiver_id == current_user.id,
+            Message.read_at.is_(None)
+        )
+    ).scalars().all()
+
+    if not messages:
+        return
+
+    read_at = datetime.now(timezone.utc)
+
+    message_ids = []
+
+    for message in messages:
+        message.read_at = read_at
+        message_ids.append(message.id)
+
+    db.session.commit()
+
+    receipt_data = {
+        "reader_id": current_user.id,
+        "message_ids": message_ids,
+        "read_at": read_at.isoformat()
+    }
+
+    # Tell the original sender that these messages were read.
+    emit(
+        "messages_read",
+        receipt_data,
+        to=f"user_{sender_id}"
+    )
+
+    # Also confirm to the reader's own connection.
+    emit(
+        "messages_read",
+        receipt_data
     )
 
 
@@ -265,7 +328,12 @@ def socket_send_message(data):
         "sender_username": current_user.username,
         "receiver_id": message.receiver_id,
         "content": message.content,
-        "created_at": message.created_at.isoformat()
+        "created_at": message.created_at.isoformat(),
+        "read_at": (
+            message.read_at.isoformat()
+            if message.read_at
+            else None
+        )
     }
 
     # Deliver immediately to the recipient's private room.

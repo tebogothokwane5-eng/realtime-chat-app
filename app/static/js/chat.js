@@ -119,6 +119,8 @@ async function selectUser(user, userElement) {
     messageInput.focus();
 
     await loadConversation(user.id);
+
+    markConversationRead(user.id);
 }
 
 
@@ -181,17 +183,68 @@ function renderMessage(message) {
     const content = document.createElement("div");
     content.textContent = message.content;
 
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+
     const time = document.createElement("span");
     time.className = "message-time";
     time.textContent = formatTime(message.created_at);
 
+    meta.appendChild(time);
+
+    if (Number(message.sender_id) === Number(currentUser.id)) {
+        const receipt = document.createElement("span");
+        receipt.className = "message-receipt";
+        receipt.dataset.receiptMessageId = message.id;
+
+        if (message.read_at) {
+            receipt.textContent = "✓✓ Read";
+            receipt.classList.add("read");
+        } else {
+            receipt.textContent = "✓ Sent";
+        }
+
+        meta.appendChild(receipt);
+    }
+
     bubble.appendChild(content);
-    bubble.appendChild(time);
+    bubble.appendChild(meta);
     row.appendChild(bubble);
 
     messagesElement.appendChild(row);
 
     scrollToBottom();
+}
+
+
+function markConversationRead(userId) {
+    if (!userId) {
+        return;
+    }
+
+    if (!socket.connected) {
+        return;
+    }
+
+    socket.emit("mark_read", {
+        sender_id: Number(userId)
+    });
+}
+
+
+function updateReadReceipts(messageIds) {
+    (messageIds || []).forEach((messageId) => {
+        const receipt = document.querySelector(
+            `[data-receipt-message-id="${messageId}"]`
+        );
+
+        if (!receipt) {
+            return;
+        }
+
+        receipt.textContent = "✓✓ Read";
+        receipt.classList.add("read");
+    });
 }
 
 
@@ -368,6 +421,12 @@ messageForm.addEventListener("submit", (event) => {
 
 socket.on("connect", () => {
     console.log("Socket.IO connected.");
+
+    // If a conversation was already opened before Socket.IO connected,
+    // mark its incoming messages as read now.
+    if (selectedUser) {
+        markConversationRead(selectedUser.id);
+    }
 });
 
 
@@ -436,10 +495,16 @@ socket.on("new_message", (message) => {
         Number(message.sender_id) === Number(selectedUser.id)
     ) {
         renderMessage(message);
+        markConversationRead(message.sender_id);
         return;
     }
 
     incrementUnread(message.sender_id);
+});
+
+
+socket.on("messages_read", (data) => {
+    updateReadReceipts(data.message_ids);
 });
 
 

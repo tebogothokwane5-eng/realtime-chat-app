@@ -77,6 +77,11 @@ class Message(db.Model):
         index=True
     )
 
+    read_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True
+    )
+
     sender = db.relationship(
         "User",
         foreign_keys=[sender_id],
