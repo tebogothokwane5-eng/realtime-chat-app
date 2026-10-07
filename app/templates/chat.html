@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Chat App</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+</head>
+
+<body class="chat-body">
+
+    <div class="chat-app">
+
+        <!-- Sidebar -->
+        <aside class="chat-sidebar">
+
+            <div class="sidebar-header">
+                <div>
+                    <h2>Chats</h2>
+                    <p id="current-user">Loading...</p>
+                </div>
+
+                <button
+                    id="logout-button"
+                    class="logout-button"
+                    type="button"
+                >
+                    Logout
+                </button>
+            </div>
+
+            <div id="users-list" class="users-list">
+                <p class="empty-text">Loading users...</p>
+            </div>
+
+        </aside>
+
+        <!-- Conversation -->
+        <main class="conversation">
+
+            <div class="conversation-header">
+                <div>
+                    <h2 id="conversation-name">
+                        Select a conversation
+                    </h2>
+
+                    <p id="conversation-status">
+                        Choose someone from the left
+                    </p>
+                </div>
+            </div>
+
+            <div
+                id="messages"
+                class="messages"
+            >
+                <div class="welcome-message">
+                    <h3>Welcome to Chat App</h3>
+                    <p>
+                        Select a user to start chatting.
+                    </p>
+                </div>
+            </div>
+
+            <form
+                id="message-form"
+                class="message-form"
+            >
+                <input
+                    type="text"
+                    id="message-input"
+                    placeholder="Type a message..."
+                    autocomplete="off"
+                    disabled
+                >
+
+                <button
+                    id="send-button"
+                    type="submit"
+                    disabled
+                >
+                    Send
+                </button>
+            </form>
+
+        </main>
+
+    </div>
+
+    <script
+        src="{{ url_for('static', filename='js/chat.js') }}"
+    ></script>
+
+</body>
+</html>
