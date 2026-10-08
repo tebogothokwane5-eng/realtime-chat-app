@@ -549,3 +549,11 @@ button:hover {
         font-size: 0.95rem;
     }
 }
+
+/* Edited message indicator */
+.message-edited {
+    font-size: 0.68rem;
+    font-style: italic;
+    white-space: nowrap;
+    opacity: 0.65;
+}

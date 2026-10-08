@@ -82,6 +82,11 @@ class Message(db.Model):
         nullable=True
     )
 
+    edited_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True
+    )
+
     deleted_for_sender_at = db.Column(
         db.DateTime(timezone=True),
         nullable=True

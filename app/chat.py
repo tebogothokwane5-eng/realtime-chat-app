@@ -183,6 +183,11 @@ def conversation(user_id):
                     message.read_at.isoformat()
                     if message.read_at
                     else None
+                ),
+                "edited_at": (
+                    message.edited_at.isoformat()
+                    if message.edited_at
+                    else None
                 )
             }
             for message in messages
@@ -387,6 +392,11 @@ def socket_send_message(data):
             message.read_at.isoformat()
             if message.read_at
             else None
+        ),
+        "edited_at": (
+            message.edited_at.isoformat()
+            if message.edited_at
+            else None
         )
     }
 
@@ -495,6 +505,89 @@ def socket_delete_message(data):
             "message_id": message.id,
             "delete_type": "me"
         }
+    )
+
+
+@socketio.on("edit_message")
+def socket_edit_message(data):
+    if not current_user.is_authenticated:
+        emit("edit_message_error", {
+            "error": "Authentication required."
+        })
+        return
+
+    data = data or {}
+
+    try:
+        message_id = int(data.get("message_id"))
+    except (TypeError, ValueError):
+        emit("edit_message_error", {
+            "error": "Invalid message ID."
+        })
+        return
+
+    content = str(data.get("content", "")).strip()
+
+    if not content:
+        emit("edit_message_error", {
+            "error": "Message cannot be empty."
+        })
+        return
+
+    message = db.session.get(Message, message_id)
+
+    if message is None:
+        emit("edit_message_error", {
+            "error": "Message not found."
+        })
+        return
+
+    # Only the original sender may edit a message.
+    if message.sender_id != current_user.id:
+        emit("edit_message_error", {
+            "error": "You can only edit your own messages."
+        })
+        return
+
+    # A message deleted for everyone can no longer be edited.
+    if message.deleted_for_everyone_at is not None:
+        emit("edit_message_error", {
+            "error": "A deleted message cannot be edited."
+        })
+        return
+
+    # A sender who deleted the message from their own view
+    # should not be able to edit it afterward.
+    if message.deleted_for_sender_at is not None:
+        emit("edit_message_error", {
+            "error": "A deleted message cannot be edited."
+        })
+        return
+
+    message.content = content
+    message.edited_at = datetime.now(timezone.utc)
+
+    db.session.commit()
+
+    edit_data = {
+        "message_id": message.id,
+        "sender_id": message.sender_id,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "edited_at": message.edited_at.isoformat()
+    }
+
+    # Update the receiver immediately.
+    emit(
+        "message_edited",
+        edit_data,
+        to=f"user_{message.receiver_id}"
+    )
+
+    # Update the sender immediately.
+    emit(
+        "message_edited",
+        edit_data
     )
 
 

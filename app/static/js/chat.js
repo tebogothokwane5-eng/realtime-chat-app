@@ -217,6 +217,8 @@ function renderMessage(message) {
     bubble.className = "message-bubble";
 
     const content = document.createElement("div");
+    content.className = "message-content";
+    content.dataset.contentMessageId = message.id;
     content.textContent = message.content;
 
     const meta = document.createElement("div");
@@ -227,6 +229,14 @@ function renderMessage(message) {
     time.textContent = formatTime(message.created_at);
 
     meta.appendChild(time);
+
+    if (message.edited_at) {
+        const edited = document.createElement("span");
+        edited.className = "message-edited";
+        edited.dataset.editedMessageId = message.id;
+        edited.textContent = "Edited";
+        meta.appendChild(edited);
+    }
 
     if (Number(message.sender_id) === Number(currentUser.id)) {
         const receipt = document.createElement("span");
@@ -328,6 +338,42 @@ function showMessageContextMenu(message, x, y) {
         Number(message.sender_id) === Number(currentUser.id);
 
     if (isSender) {
+        const editMessage = document.createElement("button");
+
+        editMessage.type = "button";
+        editMessage.textContent = "Edit";
+
+        editMessage.addEventListener("click", () => {
+            closeMessageContextMenu();
+
+            const newContent = window.prompt(
+                "Edit message:",
+                message.content
+            );
+
+            if (newContent === null) {
+                return;
+            }
+
+            const trimmedContent = newContent.trim();
+
+            if (!trimmedContent) {
+                window.alert("Message cannot be empty.");
+                return;
+            }
+
+            if (trimmedContent === message.content) {
+                return;
+            }
+
+            socket.emit("edit_message", {
+                message_id: message.id,
+                content: trimmedContent
+            });
+        });
+
+        menu.appendChild(editMessage);
+
         const deleteForEveryone =
             document.createElement("button");
 
@@ -714,6 +760,50 @@ socket.on("new_message", (message) => {
 
 socket.on("messages_read", (data) => {
     updateReadReceipts(data.message_ids);
+});
+
+
+socket.on("message_edited", (data) => {
+    const content = document.querySelector(
+        `[data-content-message-id="${data.message_id}"]`
+    );
+
+    if (content) {
+        content.textContent = data.content;
+
+        const row = content.closest(".message-row");
+        const meta = row?.querySelector(".message-meta");
+
+        if (
+            meta &&
+            !meta.querySelector(
+                `[data-edited-message-id="${data.message_id}"]`
+            )
+        ) {
+            const edited = document.createElement("span");
+            edited.className = "message-edited";
+            edited.dataset.editedMessageId = data.message_id;
+            edited.textContent = "Edited";
+
+            const receipt = meta.querySelector(".message-receipt");
+
+            if (receipt) {
+                meta.insertBefore(edited, receipt);
+            } else {
+                meta.appendChild(edited);
+            }
+        }
+    }
+
+    // Refresh the latest conversation preview.
+    loadUsers();
+});
+
+
+socket.on("edit_message_error", (data) => {
+    window.alert(
+        data.error || "Could not edit the message."
+    );
 });
 
 
