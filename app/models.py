@@ -70,6 +70,13 @@ class Message(db.Model):
         nullable=False
     )
 
+    reply_to_message_id = db.Column(
+        db.Integer,
+        db.ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -112,6 +119,12 @@ class Message(db.Model):
         "User",
         foreign_keys=[receiver_id],
         backref="received_messages"
+    )
+
+    reply_to_message = db.relationship(
+        "Message",
+        remote_side=[id],
+        foreign_keys=[reply_to_message_id]
     )
 
     def __repr__(self):

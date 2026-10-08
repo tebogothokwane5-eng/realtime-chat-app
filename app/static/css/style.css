@@ -557,3 +557,106 @@ button:hover {
     white-space: nowrap;
     opacity: 0.65;
 }
+
+/* Reply composer preview */
+.message-form {
+    flex-wrap: wrap;
+}
+
+.reply-preview {
+    flex: 0 0 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border-left: 4px solid #3346a8;
+    border-radius: 8px;
+}
+
+.reply-preview[hidden] {
+    display: none;
+}
+
+.reply-preview-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.reply-preview-text strong {
+    color: #3346a8;
+    font-size: 0.82rem;
+}
+
+.reply-preview-text span {
+    max-width: 100%;
+    overflow: hidden;
+    color: #64748b;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.message-form .cancel-reply-button {
+    flex-shrink: 0;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.35rem;
+    line-height: 30px;
+    cursor: pointer;
+}
+
+.message-form .cancel-reply-button:hover {
+    background: #e2e8f0;
+    color: #1f2937;
+}
+
+/* Reply quote inside a message bubble */
+.message-reply-quote {
+    margin-bottom: 9px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    overflow: hidden;
+}
+
+.message-row.sent .message-reply-quote {
+    background: rgba(255, 255, 255, 0.12);
+    border-left: 3px solid rgba(255, 255, 255, 0.65);
+}
+
+.message-row.received .message-reply-quote {
+    background: #eef2f7;
+    border-left: 3px solid #3346a8;
+}
+
+.message-reply-name {
+    margin-bottom: 2px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.message-row.sent .message-reply-name {
+    color: #ffffff;
+}
+
+.message-row.received .message-reply-name {
+    color: #3346a8;
+}
+
+.message-reply-content {
+    overflow: hidden;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    opacity: 0.85;
+}

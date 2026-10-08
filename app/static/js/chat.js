@@ -9,12 +9,22 @@ const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
 const logoutButton = document.getElementById("logout-button");
 
+const replyPreviewElement =
+    document.getElementById("reply-preview");
+const replyPreviewNameElement =
+    document.getElementById("reply-preview-name");
+const replyPreviewContentElement =
+    document.getElementById("reply-preview-content");
+const cancelReplyButton =
+    document.getElementById("cancel-reply-button");
+
 let currentUser = null;
 let selectedUser = null;
 let onlineUserIds = new Set();
 let unreadCounts = new Map();
 let typingTimeout = null;
 let typingSent = false;
+let replyingToMessage = null;
 
 const socket = io();
 
@@ -136,6 +146,7 @@ async function loadUsers() {
 
 
 async function selectUser(user, userElement) {
+    cancelReply();
     selectedUser = user;
 
     clearUnread(user.id);
@@ -215,6 +226,40 @@ function renderMessage(message) {
 
     const bubble = document.createElement("div");
     bubble.className = "message-bubble";
+
+    if (message.reply_to) {
+        const replyQuote = document.createElement("div");
+        replyQuote.className = "message-reply-quote";
+
+        const replyName = document.createElement("div");
+        replyName.className = "message-reply-name";
+
+        const replyIsCurrentUser =
+            Number(message.reply_to.sender_id) ===
+            Number(currentUser.id);
+
+        replyName.textContent = replyIsCurrentUser
+            ? "You"
+            : message.reply_to.sender_username;
+
+        const replyContent = document.createElement("div");
+        replyContent.className = "message-reply-content";
+
+        replyContent.textContent = message.reply_to.deleted
+            ? "Original message deleted"
+            : message.reply_to.content;
+
+        if (message.reply_to.deleted) {
+            replyQuote.classList.add("deleted-reply");
+        }
+
+        replyQuote.dataset.replyToMessageId =
+            message.reply_to.id;
+
+        replyQuote.appendChild(replyName);
+        replyQuote.appendChild(replyContent);
+        bubble.appendChild(replyQuote);
+    }
 
     const content = document.createElement("div");
     content.className = "message-content";
@@ -302,6 +347,41 @@ function renderMessage(message) {
 }
 
 
+function startReply(message) {
+    replyingToMessage = message;
+
+    const isOwnMessage =
+        Number(message.sender_id) === Number(currentUser.id);
+
+    replyPreviewNameElement.textContent =
+        isOwnMessage
+            ? "Replying to yourself"
+            : `Replying to ${selectedUser.username}`;
+
+    replyPreviewContentElement.textContent =
+        message.content;
+
+    replyPreviewElement.hidden = false;
+
+    messageInput.focus();
+}
+
+
+function cancelReply() {
+    replyingToMessage = null;
+
+    replyPreviewNameElement.textContent = "";
+    replyPreviewContentElement.textContent = "";
+    replyPreviewElement.hidden = true;
+}
+
+
+cancelReplyButton.addEventListener("click", () => {
+    cancelReply();
+    messageInput.focus();
+});
+
+
 function closeMessageContextMenu() {
     const existingMenu = document.querySelector(
         ".message-context-menu"
@@ -318,6 +398,17 @@ function showMessageContextMenu(message, x, y) {
 
     const menu = document.createElement("div");
     menu.className = "message-context-menu";
+
+    const replyMessage = document.createElement("button");
+    replyMessage.type = "button";
+    replyMessage.textContent = "Reply";
+
+    replyMessage.addEventListener("click", () => {
+        startReply(message);
+        closeMessageContextMenu();
+    });
+
+    menu.appendChild(replyMessage);
 
     const deleteForMe = document.createElement("button");
     deleteForMe.type = "button";
@@ -662,10 +753,14 @@ messageForm.addEventListener("submit", (event) => {
 
     socket.emit("send_message", {
         receiver_id: selectedUser.id,
-        content: content
+        content: content,
+        reply_to_message_id: replyingToMessage
+            ? replyingToMessage.id
+            : null
     });
 
     messageInput.value = "";
+    cancelReply();
     messageInput.focus();
 });
 
@@ -795,6 +890,24 @@ socket.on("message_edited", (data) => {
         }
     }
 
+    const replyQuotes = document.querySelectorAll(
+        `[data-reply-to-message-id="${data.message_id}"]`
+    );
+
+    replyQuotes.forEach((replyQuote) => {
+        if (replyQuote.classList.contains("deleted-reply")) {
+            return;
+        }
+
+        const replyContent = replyQuote.querySelector(
+            ".message-reply-content"
+        );
+
+        if (replyContent) {
+            replyContent.textContent = data.content;
+        }
+    });
+
     // Refresh the latest conversation preview.
     loadUsers();
 });
@@ -815,6 +928,23 @@ socket.on("message_deleted", (data) => {
     if (messageElement) {
         messageElement.remove();
     }
+
+    const replyQuotes = document.querySelectorAll(
+        `[data-reply-to-message-id="${data.message_id}"]`
+    );
+
+    replyQuotes.forEach((replyQuote) => {
+        const replyContent = replyQuote.querySelector(
+            ".message-reply-content"
+        );
+
+        if (replyContent) {
+            replyContent.textContent =
+                "Original message deleted";
+        }
+
+        replyQuote.classList.add("deleted-reply");
+    });
 
     if (messagesElement.children.length === 0) {
         messagesElement.innerHTML =

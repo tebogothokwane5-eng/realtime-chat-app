@@ -10,6 +10,42 @@ from .models import User, Message
 chat_bp = Blueprint("chat", __name__, url_prefix="/chat")
 
 
+def serialize_reply_for_viewer(reply_message, viewer_id):
+    if reply_message is None:
+        return None
+
+    hidden_for_viewer = (
+        reply_message.deleted_for_everyone_at is not None
+        or (
+            reply_message.sender_id == viewer_id
+            and
+            reply_message.deleted_for_sender_at is not None
+        )
+        or (
+            reply_message.receiver_id == viewer_id
+            and
+            reply_message.deleted_for_receiver_at is not None
+        )
+    )
+
+    if hidden_for_viewer:
+        return {
+            "id": reply_message.id,
+            "sender_id": reply_message.sender_id,
+            "sender_username": reply_message.sender.username,
+            "content": None,
+            "deleted": True
+        }
+
+    return {
+        "id": reply_message.id,
+        "sender_id": reply_message.sender_id,
+        "sender_username": reply_message.sender.username,
+        "content": reply_message.content,
+        "deleted": False
+    }
+
+
 @chat_bp.route("/users", methods=["GET"])
 @login_required
 def users():
@@ -90,6 +126,7 @@ def send_message():
 
     receiver_id = data.get("receiver_id")
     content = data.get("content", "").strip()
+    reply_to_message_id = data.get("reply_to_message_id")
 
     if not receiver_id or not content:
         return jsonify({
@@ -115,10 +152,77 @@ def send_message():
             "error": "Receiver not found."
         }), 404
 
+    reply_to_message = None
+
+    if reply_to_message_id is not None:
+        try:
+            reply_to_message_id = int(reply_to_message_id)
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "Invalid reply message ID."
+            }), 400
+
+        reply_to_message = db.session.get(
+            Message,
+            reply_to_message_id
+        )
+
+        if reply_to_message is None:
+            return jsonify({
+                "error": "Reply message not found."
+            }), 404
+
+        same_conversation = (
+            (
+                reply_to_message.sender_id == current_user.id
+                and
+                reply_to_message.receiver_id == receiver.id
+            )
+            or
+            (
+                reply_to_message.sender_id == receiver.id
+                and
+                reply_to_message.receiver_id == current_user.id
+            )
+        )
+
+        if not same_conversation:
+            return jsonify({
+                "error": "You cannot reply to that message."
+            }), 403
+
+        if reply_to_message.deleted_for_everyone_at is not None:
+            return jsonify({
+                "error": "You cannot reply to a deleted message."
+            }), 400
+
+        if (
+            reply_to_message.sender_id == current_user.id
+            and
+            reply_to_message.deleted_for_sender_at is not None
+        ):
+            return jsonify({
+                "error": "You cannot reply to a deleted message."
+            }), 400
+
+        if (
+            reply_to_message.receiver_id == current_user.id
+            and
+            reply_to_message.deleted_for_receiver_at is not None
+        ):
+            return jsonify({
+                "error": "You cannot reply to a deleted message."
+            }), 400
+
     message = Message(
         sender_id=current_user.id,
         receiver_id=receiver.id,
-        content=content
+        content=content,
+        reply_to_message_id=(
+            reply_to_message.id
+            if reply_to_message
+            else None
+        )
     )
 
     db.session.add(message)
@@ -131,7 +235,19 @@ def send_message():
             "sender_id": message.sender_id,
             "receiver_id": message.receiver_id,
             "content": message.content,
-            "created_at": message.created_at.isoformat()
+            "created_at": message.created_at.isoformat(),
+            "reply_to": (
+                {
+                    "id": reply_to_message.id,
+                    "sender_id": reply_to_message.sender_id,
+                    "sender_username": (
+                        reply_to_message.sender.username
+                    ),
+                    "content": reply_to_message.content
+                }
+                if reply_to_message
+                else None
+            )
         }
     }), 201
 
@@ -188,6 +304,10 @@ def conversation(user_id):
                     message.edited_at.isoformat()
                     if message.edited_at
                     else None
+                ),
+                "reply_to": serialize_reply_for_viewer(
+                    message.reply_to_message,
+                    current_user.id
                 )
             }
             for message in messages
@@ -343,6 +463,7 @@ def socket_send_message(data):
 
     receiver_id = data.get("receiver_id")
     content = str(data.get("content", "")).strip()
+    reply_to_message_id = data.get("reply_to_message_id")
 
     if not receiver_id or not content:
         emit("error", {
@@ -372,10 +493,83 @@ def socket_send_message(data):
         })
         return
 
+    reply_to_message = None
+
+    if reply_to_message_id is not None:
+        try:
+            reply_to_message_id = int(reply_to_message_id)
+        except (TypeError, ValueError):
+            emit("error", {
+                "error": "Invalid reply message ID."
+            })
+            return
+
+        reply_to_message = db.session.get(
+            Message,
+            reply_to_message_id
+        )
+
+        if reply_to_message is None:
+            emit("error", {
+                "error": "Reply message not found."
+            })
+            return
+
+        same_conversation = (
+            (
+                reply_to_message.sender_id == current_user.id
+                and
+                reply_to_message.receiver_id == receiver.id
+            )
+            or
+            (
+                reply_to_message.sender_id == receiver.id
+                and
+                reply_to_message.receiver_id == current_user.id
+            )
+        )
+
+        if not same_conversation:
+            emit("error", {
+                "error": "You cannot reply to that message."
+            })
+            return
+
+        if reply_to_message.deleted_for_everyone_at is not None:
+            emit("error", {
+                "error": "You cannot reply to a deleted message."
+            })
+            return
+
+        if (
+            reply_to_message.sender_id == current_user.id
+            and
+            reply_to_message.deleted_for_sender_at is not None
+        ):
+            emit("error", {
+                "error": "You cannot reply to a deleted message."
+            })
+            return
+
+        if (
+            reply_to_message.receiver_id == current_user.id
+            and
+            reply_to_message.deleted_for_receiver_at is not None
+        ):
+            emit("error", {
+                "error": "You cannot reply to a deleted message."
+            })
+            return
+
     message = Message(
         sender_id=current_user.id,
         receiver_id=receiver.id,
-        content=content
+        content=content,
+        reply_to_message_id=(
+            reply_to_message.id
+            if reply_to_message
+            else None
+        )
     )
 
     db.session.add(message)
@@ -397,20 +591,36 @@ def socket_send_message(data):
             message.edited_at.isoformat()
             if message.edited_at
             else None
+        ),
+    }
+
+    receiver_message_data = {
+        **message_data,
+        "reply_to": serialize_reply_for_viewer(
+            reply_to_message,
+            receiver.id
+        )
+    }
+
+    sender_message_data = {
+        **message_data,
+        "reply_to": serialize_reply_for_viewer(
+            reply_to_message,
+            current_user.id
         )
     }
 
     # Deliver immediately to the recipient's private room.
     emit(
         "new_message",
-        message_data,
+        receiver_message_data,
         to=f"user_{receiver.id}"
     )
 
     # Confirm the saved message back to the sender.
     emit(
         "message_sent",
-        message_data
+        sender_message_data
     )
 
 

@@ -73,6 +73,26 @@
                 id="message-form"
                 class="message-form"
             >
+                <div
+                    id="reply-preview"
+                    class="reply-preview"
+                    hidden
+                >
+                    <div class="reply-preview-text">
+                        <strong id="reply-preview-name"></strong>
+                        <span id="reply-preview-content"></span>
+                    </div>
+
+                    <button
+                        id="cancel-reply-button"
+                        class="cancel-reply-button"
+                        type="button"
+                        aria-label="Cancel reply"
+                    >
+                        &times;
+                    </button>
+                </div>
+
                 <input
                     type="text"
                     id="message-input"
