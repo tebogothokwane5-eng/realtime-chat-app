@@ -129,3 +129,66 @@ class Message(db.Model):
 
     def __repr__(self):
         return f"<Message {self.id}: {self.sender_id} -> {self.receiver_id}>"
+
+
+class MessageReaction(db.Model):
+    __tablename__ = "message_reactions"
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True
+    )
+
+    message_id = db.Column(
+        db.Integer,
+        db.ForeignKey("messages.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    emoji = db.Column(
+        db.String(32),
+        nullable=False
+    )
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+
+    message = db.relationship(
+        "Message",
+        backref=db.backref(
+            "reactions",
+            cascade="all, delete-orphan"
+        )
+    )
+
+    user = db.relationship(
+        "User",
+        backref="message_reactions"
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "message_id",
+            "user_id",
+            name="uq_message_reaction_user"
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<MessageReaction {self.id}: "
+            f"message={self.message_id}, "
+            f"user={self.user_id}, "
+            f"emoji={self.emoji}>"
+        )

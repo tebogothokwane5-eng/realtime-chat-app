@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from .extensions import db
-from .models import User, Message
+from .models import User, Message, MessageReaction
 
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/chat")
@@ -308,7 +308,15 @@ def conversation(user_id):
                 "reply_to": serialize_reply_for_viewer(
                     message.reply_to_message,
                     current_user.id
-                )
+                ),
+                "reactions": [
+                    {
+                        "user_id": reaction.user_id,
+                        "username": reaction.user.username,
+                        "emoji": reaction.emoji
+                    }
+                    for reaction in message.reactions
+                ]
             }
             for message in messages
         ]
@@ -798,6 +806,147 @@ def socket_edit_message(data):
     emit(
         "message_edited",
         edit_data
+    )
+
+
+@socketio.on("react_message")
+def socket_react_message(data):
+    if not current_user.is_authenticated:
+        emit("reaction_error", {
+            "error": "Authentication required."
+        })
+        return
+
+    data = data or {}
+
+    try:
+        message_id = int(data.get("message_id"))
+    except (TypeError, ValueError):
+        emit("reaction_error", {
+            "error": "Invalid message ID."
+        })
+        return
+
+    emoji = str(data.get("emoji", "")).strip()
+
+    allowed_emojis = {
+        "👍",
+        "❤️",
+        "😂",
+        "😮",
+        "😢",
+        "🔥"
+    }
+
+    if emoji not in allowed_emojis:
+        emit("reaction_error", {
+            "error": "Invalid reaction."
+        })
+        return
+
+    message = db.session.get(Message, message_id)
+
+    if message is None:
+        emit("reaction_error", {
+            "error": "Message not found."
+        })
+        return
+
+    is_sender = message.sender_id == current_user.id
+    is_receiver = message.receiver_id == current_user.id
+
+    if not is_sender and not is_receiver:
+        emit("reaction_error", {
+            "error": "You cannot react to this message."
+        })
+        return
+
+    if message.deleted_for_everyone_at is not None:
+        emit("reaction_error", {
+            "error": "You cannot react to a deleted message."
+        })
+        return
+
+    if is_sender and message.deleted_for_sender_at is not None:
+        emit("reaction_error", {
+            "error": "You cannot react to a deleted message."
+        })
+        return
+
+    if is_receiver and message.deleted_for_receiver_at is not None:
+        emit("reaction_error", {
+            "error": "You cannot react to a deleted message."
+        })
+        return
+
+    reaction = db.session.execute(
+        db.select(MessageReaction).where(
+            MessageReaction.message_id == message.id,
+            MessageReaction.user_id == current_user.id
+        )
+    ).scalar_one_or_none()
+
+    action = "added"
+
+    if reaction is None:
+        reaction = MessageReaction(
+            message_id=message.id,
+            user_id=current_user.id,
+            emoji=emoji
+        )
+        db.session.add(reaction)
+
+    elif reaction.emoji == emoji:
+        db.session.delete(reaction)
+        action = "removed"
+
+    else:
+        reaction.emoji = emoji
+        action = "changed"
+
+    db.session.commit()
+
+    reactions = db.session.execute(
+        db.select(MessageReaction)
+        .where(MessageReaction.message_id == message.id)
+        .order_by(MessageReaction.id.asc())
+    ).scalars().all()
+
+    reaction_data = {
+        "message_id": message.id,
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "emoji": (
+            emoji
+            if action != "removed"
+            else None
+        ),
+        "action": action,
+        "reactions": [
+            {
+                "user_id": item.user_id,
+                "username": item.user.username,
+                "emoji": item.emoji
+            }
+            for item in reactions
+        ]
+    }
+
+    other_user_id = (
+        message.receiver_id
+        if is_sender
+        else message.sender_id
+    )
+
+    emit(
+        "message_reaction",
+        reaction_data,
+        to=f"user_{other_user_id}"
+    )
+
+    emit(
+        "message_reaction",
+        reaction_data
     )
 
 

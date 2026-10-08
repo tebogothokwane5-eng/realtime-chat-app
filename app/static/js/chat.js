@@ -7,6 +7,8 @@ const messagesElement = document.getElementById("messages");
 const messageForm = document.getElementById("message-form");
 const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
+const emojiButton = document.getElementById("emoji-button");
+const emojiPicker = document.getElementById("emoji-picker");
 const logoutButton = document.getElementById("logout-button");
 
 const replyPreviewElement =
@@ -162,6 +164,7 @@ async function selectUser(user, userElement) {
 
     messageInput.disabled = false;
     sendButton.disabled = false;
+    emojiButton.disabled = false;
 
     messageInput.focus();
 
@@ -198,6 +201,91 @@ async function loadConversation(userId) {
     });
 
     scrollToBottom();
+}
+
+
+function renderMessageReactions(messageId, reactions = []) {
+    const row = document.querySelector(
+        `[data-message-id="${messageId}"]`
+    );
+
+    if (!row) {
+        return;
+    }
+
+    let container = row.querySelector(".message-reactions");
+
+    if (!container) {
+        container = document.createElement("div");
+        container.className = "message-reactions";
+
+        const bubble = row.querySelector(".message-bubble");
+
+        if (!bubble) {
+            return;
+        }
+
+        bubble.appendChild(container);
+    }
+
+    container.innerHTML = "";
+
+    if (!reactions.length) {
+        container.hidden = true;
+        return;
+    }
+
+    const grouped = new Map();
+
+    reactions.forEach((reaction) => {
+        const emoji = reaction.emoji;
+
+        if (!grouped.has(emoji)) {
+            grouped.set(emoji, {
+                count: 0,
+                users: [],
+                reactedByCurrentUser: false
+            });
+        }
+
+        const group = grouped.get(emoji);
+
+        group.count += 1;
+        group.users.push(reaction.username);
+
+        if (
+            Number(reaction.user_id) ===
+            Number(currentUser.id)
+        ) {
+            group.reactedByCurrentUser = true;
+        }
+    });
+
+    grouped.forEach((group, emoji) => {
+        const chip = document.createElement("button");
+
+        chip.type = "button";
+        chip.className = "message-reaction-chip";
+
+        if (group.reactedByCurrentUser) {
+            chip.classList.add("mine");
+        }
+
+        chip.textContent =
+            group.count > 1
+                ? `${emoji} ${group.count}`
+                : emoji;
+
+        chip.title = group.users.join(", ");
+
+        chip.addEventListener("click", () => {
+            reactToMessage(messageId, emoji);
+        });
+
+        container.appendChild(chip);
+    });
+
+    container.hidden = false;
 }
 
 
@@ -343,6 +431,11 @@ function renderMessage(message) {
 
     messagesElement.appendChild(row);
 
+    renderMessageReactions(
+        message.id,
+        message.reactions || []
+    );
+
     scrollToBottom();
 }
 
@@ -393,11 +486,40 @@ function closeMessageContextMenu() {
 }
 
 
+function reactToMessage(messageId, emoji) {
+    socket.emit("react_message", {
+        message_id: messageId,
+        emoji: emoji
+    });
+}
+
+
 function showMessageContextMenu(message, x, y) {
     closeMessageContextMenu();
 
     const menu = document.createElement("div");
     menu.className = "message-context-menu";
+
+    const reactionPicker = document.createElement("div");
+    reactionPicker.className = "message-reaction-picker";
+
+    ["👍", "❤️", "😂", "😮", "😢", "🔥"].forEach((emoji) => {
+        const reactionButton = document.createElement("button");
+
+        reactionButton.type = "button";
+        reactionButton.className = "message-reaction-option";
+        reactionButton.textContent = emoji;
+        reactionButton.title = `React with ${emoji}`;
+
+        reactionButton.addEventListener("click", () => {
+            reactToMessage(message.id, emoji);
+            closeMessageContextMenu();
+        });
+
+        reactionPicker.appendChild(reactionButton);
+    });
+
+    menu.appendChild(reactionPicker);
 
     const replyMessage = document.createElement("button");
     replyMessage.type = "button";
@@ -687,6 +809,62 @@ function refreshPresenceDisplay() {
 }
 
 
+function closeEmojiPicker() {
+    emojiPicker.hidden = true;
+}
+
+
+emojiButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+
+    if (emojiButton.disabled) {
+        return;
+    }
+
+    emojiPicker.hidden = !emojiPicker.hidden;
+});
+
+
+emojiPicker.addEventListener("click", (event) => {
+    const emojiOption = event.target.closest("[data-emoji]");
+
+    if (!emojiOption) {
+        return;
+    }
+
+    const emoji = emojiOption.dataset.emoji;
+
+    const start =
+        messageInput.selectionStart ?? messageInput.value.length;
+
+    const end =
+        messageInput.selectionEnd ?? start;
+
+    messageInput.setRangeText(
+        emoji,
+        start,
+        end,
+        "end"
+    );
+
+    messageInput.dispatchEvent(
+        new Event("input", {
+            bubbles: true
+        })
+    );
+
+    closeEmojiPicker();
+    messageInput.focus();
+});
+
+
+document.addEventListener("click", (event) => {
+    if (!event.target.closest(".emoji-picker-wrapper")) {
+        closeEmojiPicker();
+    }
+});
+
+
 function sendTypingStatus(isTyping) {
     console.log("Sending typing event:", isTyping, "to:", selectedUser?.id);
     if (!selectedUser || !socket.connected) {
@@ -855,6 +1033,21 @@ socket.on("new_message", (message) => {
 
 socket.on("messages_read", (data) => {
     updateReadReceipts(data.message_ids);
+});
+
+
+socket.on("message_reaction", (data) => {
+    renderMessageReactions(
+        data.message_id,
+        data.reactions || []
+    );
+});
+
+
+socket.on("reaction_error", (data) => {
+    window.alert(
+        data.error || "Could not react to the message."
+    );
 });
 
 

@@ -93,21 +93,59 @@
                     </button>
                 </div>
 
-                <input
-                    type="text"
-                    id="message-input"
-                    placeholder="Type a message..."
-                    autocomplete="off"
-                    disabled
-                >
+                <div class="message-composer">
+                    <div class="emoji-picker-wrapper">
+                        <button
+                            id="emoji-button"
+                            class="emoji-button"
+                            type="button"
+                            aria-label="Choose emoji"
+                            title="Add emoji"
+                            disabled
+                        >
+                            😀
+                        </button>
 
-                <button
-                    id="send-button"
-                    type="submit"
-                    disabled
-                >
-                    Send
-                </button>
+                        <div
+                            id="emoji-picker"
+                            class="emoji-picker"
+                            hidden
+                        >
+                            <button type="button" data-emoji="😀">😀</button>
+                            <button type="button" data-emoji="😂">😂</button>
+                            <button type="button" data-emoji="😊">😊</button>
+                            <button type="button" data-emoji="😍">😍</button>
+                            <button type="button" data-emoji="😎">😎</button>
+                            <button type="button" data-emoji="😢">😢</button>
+                            <button type="button" data-emoji="😮">😮</button>
+                            <button type="button" data-emoji="👍">👍</button>
+                            <button type="button" data-emoji="👎">👎</button>
+                            <button type="button" data-emoji="❤️">❤️</button>
+                            <button type="button" data-emoji="🔥">🔥</button>
+                            <button type="button" data-emoji="🎉">🎉</button>
+                            <button type="button" data-emoji="🙏">🙏</button>
+                            <button type="button" data-emoji="👏">👏</button>
+                            <button type="button" data-emoji="💯">💯</button>
+                            <button type="button" data-emoji="🚛">🚛</button>
+                        </div>
+                    </div>
+
+                    <input
+                        type="text"
+                        id="message-input"
+                        placeholder="Type a message..."
+                        autocomplete="off"
+                        disabled
+                    >
+
+                    <button
+                        id="send-button"
+                        type="submit"
+                        disabled
+                    >
+                        Send
+                    </button>
+                </div>
             </form>
 
         </main>
