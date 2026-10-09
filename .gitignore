@@ -8,3 +8,6 @@ instance/
 # Local test files
 *_cookies.txt
 cookies.txt
+
+# User-uploaded chat files
+app/uploads/

@@ -9,6 +9,17 @@ const messageInput = document.getElementById("message-input");
 const sendButton = document.getElementById("send-button");
 const emojiButton = document.getElementById("emoji-button");
 const emojiPicker = document.getElementById("emoji-picker");
+const imageButton = document.getElementById("image-button");
+const imageInput = document.getElementById("image-input");
+
+const imageViewer = document.getElementById("image-viewer");
+const imageViewerImage =
+    document.getElementById("image-viewer-image");
+const imageViewerName =
+    document.getElementById("image-viewer-name");
+const imageViewerClose =
+    document.getElementById("image-viewer-close");
+
 const logoutButton = document.getElementById("logout-button");
 
 const replyPreviewElement =
@@ -165,6 +176,7 @@ async function selectUser(user, userElement) {
     messageInput.disabled = false;
     sendButton.disabled = false;
     emojiButton.disabled = false;
+    imageButton.disabled = false;
 
     messageInput.focus();
 
@@ -352,7 +364,52 @@ function renderMessage(message) {
     const content = document.createElement("div");
     content.className = "message-content";
     content.dataset.contentMessageId = message.id;
-    content.textContent = message.content;
+
+    if (
+        message.message_type === "image"
+        && message.image_url
+    ) {
+        content.classList.add("image-message-content");
+
+        const image = document.createElement("img");
+        image.className = "chat-message-image";
+        image.src = message.image_url;
+        image.alt =
+            message.image_original_name || "Shared image";
+        image.loading = "lazy";
+
+        image.addEventListener("click", () => {
+            imageViewerImage.src = message.image_url;
+            imageViewerImage.alt =
+                message.image_original_name || "Shared image";
+
+            imageViewerName.textContent =
+                message.image_original_name || "";
+
+            imageViewer.hidden = false;
+            imageViewer.setAttribute(
+                "aria-hidden",
+                "false"
+            );
+
+            document.body.classList.add(
+                "image-viewer-open"
+            );
+        });
+
+        content.appendChild(image);
+
+        if (message.image_original_name) {
+            const imageName = document.createElement("div");
+            imageName.className = "chat-image-name";
+            imageName.textContent =
+                message.image_original_name;
+
+            content.appendChild(imageName);
+        }
+    } else {
+        content.textContent = message.content;
+    }
 
     const meta = document.createElement("div");
     meta.className = "message-meta";
@@ -551,41 +608,49 @@ function showMessageContextMenu(message, x, y) {
         Number(message.sender_id) === Number(currentUser.id);
 
     if (isSender) {
-        const editMessage = document.createElement("button");
+        if (message.message_type !== "image") {
+            const editMessage =
+                document.createElement("button");
 
-        editMessage.type = "button";
-        editMessage.textContent = "Edit";
+            editMessage.type = "button";
+            editMessage.textContent = "Edit";
 
-        editMessage.addEventListener("click", () => {
-            closeMessageContextMenu();
+            editMessage.addEventListener("click", () => {
+                closeMessageContextMenu();
 
-            const newContent = window.prompt(
-                "Edit message:",
-                message.content
-            );
+                const newContent = window.prompt(
+                    "Edit message:",
+                    message.content
+                );
 
-            if (newContent === null) {
-                return;
-            }
+                if (newContent === null) {
+                    return;
+                }
 
-            const trimmedContent = newContent.trim();
+                const trimmedContent =
+                    newContent.trim();
 
-            if (!trimmedContent) {
-                window.alert("Message cannot be empty.");
-                return;
-            }
+                if (!trimmedContent) {
+                    window.alert(
+                        "Message cannot be empty."
+                    );
+                    return;
+                }
 
-            if (trimmedContent === message.content) {
-                return;
-            }
+                if (
+                    trimmedContent === message.content
+                ) {
+                    return;
+                }
 
-            socket.emit("edit_message", {
-                message_id: message.id,
-                content: trimmedContent
+                socket.emit("edit_message", {
+                    message_id: message.id,
+                    content: trimmedContent
+                });
             });
-        });
 
-        menu.appendChild(editMessage);
+            menu.appendChild(editMessage);
+        }
 
         const deleteForEveryone =
             document.createElement("button");
@@ -861,6 +926,94 @@ emojiPicker.addEventListener("click", (event) => {
 document.addEventListener("click", (event) => {
     if (!event.target.closest(".emoji-picker-wrapper")) {
         closeEmojiPicker();
+    }
+});
+
+
+imageButton.addEventListener("click", () => {
+    if (!selectedUser || imageButton.disabled) {
+        return;
+    }
+
+    imageInput.click();
+});
+
+
+imageInput.addEventListener("change", async () => {
+    const imageFile = imageInput.files[0];
+
+    if (!imageFile) {
+        return;
+    }
+
+    if (!selectedUser) {
+        imageInput.value = "";
+        return;
+    }
+
+    const allowedTypes = new Set([
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp"
+    ]);
+
+    if (!allowedTypes.has(imageFile.type)) {
+        alert(
+            "Unsupported image type. " +
+            "Use PNG, JPG, JPEG, GIF, or WebP."
+        );
+
+        imageInput.value = "";
+        return;
+    }
+
+    const maxImageSize = 10 * 1024 * 1024;
+
+    if (imageFile.size > maxImageSize) {
+        alert("Image must be 10 MB or smaller.");
+        imageInput.value = "";
+        return;
+    }
+
+    const receiverId = selectedUser.id;
+    const formData = new FormData();
+
+    formData.append("receiver_id", receiverId);
+    formData.append("image", imageFile);
+
+    imageButton.disabled = true;
+
+    try {
+        const response = await fetch("/chat/send-image", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Could not send image."
+            );
+        }
+
+        if (
+            selectedUser
+            && Number(selectedUser.id) === Number(receiverId)
+            && data.data
+        ) {
+            renderMessage(data.data);
+        }
+    } catch (error) {
+        console.error("Image upload failed:", error);
+        alert(error.message || "Could not send image.");
+    } finally {
+        imageInput.value = "";
+
+        if (selectedUser) {
+            imageButton.disabled = false;
+        }
     }
 });
 
@@ -1194,3 +1347,38 @@ async function initializeChat() {
 
 
 initializeChat();
+
+
+function closeImageViewer() {
+    imageViewer.hidden = true;
+    imageViewer.setAttribute("aria-hidden", "true");
+
+    imageViewerImage.src = "";
+    imageViewerName.textContent = "";
+
+    document.body.classList.remove(
+        "image-viewer-open"
+    );
+}
+
+
+imageViewerClose.addEventListener("click", () => {
+    closeImageViewer();
+});
+
+
+imageViewer.addEventListener("click", (event) => {
+    if (event.target === imageViewer) {
+        closeImageViewer();
+    }
+});
+
+
+document.addEventListener("keydown", (event) => {
+    if (
+        event.key === "Escape"
+        && !imageViewer.hidden
+    ) {
+        closeImageViewer();
+    }
+});

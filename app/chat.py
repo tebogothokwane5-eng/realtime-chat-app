@@ -1,13 +1,49 @@
+import os
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy import or_, and_
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_from_directory
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+from PIL import Image, UnidentifiedImageError
 
-from .extensions import db
+from .extensions import db, socketio
 from .models import User, Message, MessageReaction
 
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/chat")
+
+
+CHAT_IMAGE_UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(__file__),
+    "uploads",
+    "chat_images"
+)
+
+ALLOWED_IMAGE_EXTENSIONS = {
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp"
+}
+
+MAX_IMAGE_SIZE = 10 * 1024 * 1024
+
+
+def allowed_image(filename):
+    return (
+        "." in filename
+        and
+        filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_IMAGE_EXTENSIONS
+    )
+
+
+os.makedirs(
+    CHAT_IMAGE_UPLOAD_FOLDER,
+    exist_ok=True
+)
 
 
 def serialize_reply_for_viewer(reply_message, viewer_id):
@@ -235,7 +271,13 @@ def send_message():
             "sender_id": message.sender_id,
             "receiver_id": message.receiver_id,
             "content": message.content,
+            "message_type": message.message_type,
+            "image_url": None,
+            "image_original_name": None,
             "created_at": message.created_at.isoformat(),
+            "read_at": None,
+            "edited_at": None,
+            "reactions": [],
             "reply_to": (
                 {
                     "id": reply_to_message.id,
@@ -249,6 +291,205 @@ def send_message():
                 else None
             )
         }
+    }), 201
+
+
+@chat_bp.route("/images/<path:filename>", methods=["GET"])
+@login_required
+def chat_image(filename):
+    message = (
+        Message.query
+        .filter(
+            Message.image_filename == filename,
+            Message.message_type == "image",
+            Message.deleted_for_everyone_at.is_(None),
+            or_(
+                and_(
+                    Message.sender_id == current_user.id,
+                    Message.deleted_for_sender_at.is_(None)
+                ),
+                and_(
+                    Message.receiver_id == current_user.id,
+                    Message.deleted_for_receiver_at.is_(None)
+                )
+            )
+        )
+        .first()
+    )
+
+    if message is None:
+        return jsonify({
+            "error": "Image not found."
+        }), 404
+
+    return send_from_directory(
+        CHAT_IMAGE_UPLOAD_FOLDER,
+        filename
+    )
+
+
+@chat_bp.route("/send-image", methods=["POST"])
+@login_required
+def send_image():
+    receiver_id = request.form.get("receiver_id")
+    image = request.files.get("image")
+
+    if not receiver_id:
+        return jsonify({
+            "error": "receiver_id is required."
+        }), 400
+
+    try:
+        receiver_id = int(receiver_id)
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "receiver_id must be a valid integer."
+        }), 400
+
+    if receiver_id == current_user.id:
+        return jsonify({
+            "error": "You cannot send an image to yourself."
+        }), 400
+
+    receiver = db.session.get(User, receiver_id)
+
+    if receiver is None:
+        return jsonify({
+            "error": "Receiver not found."
+        }), 404
+
+    if image is None or not image.filename:
+        return jsonify({
+            "error": "An image file is required."
+        }), 400
+
+    original_name = secure_filename(image.filename)
+
+    if not original_name or not allowed_image(original_name):
+        return jsonify({
+            "error": (
+                "Unsupported image type. "
+                "Use PNG, JPG, JPEG, GIF, or WebP."
+            )
+        }), 400
+
+    image.stream.seek(0, os.SEEK_END)
+    image_size = image.stream.tell()
+    image.stream.seek(0)
+
+    if image_size > MAX_IMAGE_SIZE:
+        return jsonify({
+            "error": "Image must be 10 MB or smaller."
+        }), 400
+
+    if image_size <= 0:
+        return jsonify({
+            "error": "The image file is empty."
+        }), 400
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+
+    expected_formats = {
+        "png": "PNG",
+        "jpg": "JPEG",
+        "jpeg": "JPEG",
+        "gif": "GIF",
+        "webp": "WEBP"
+    }
+
+    try:
+        with Image.open(image.stream) as verified_image:
+            detected_format = verified_image.format
+            verified_image.verify()
+    except (
+        UnidentifiedImageError,
+        OSError,
+        SyntaxError
+    ):
+        image.stream.seek(0)
+
+        return jsonify({
+            "error": "The uploaded file is not a valid image."
+        }), 400
+
+    image.stream.seek(0)
+
+    if detected_format != expected_formats.get(extension):
+        return jsonify({
+            "error": (
+                "The image contents do not match "
+                "the file extension."
+            )
+        }), 400
+    stored_filename = f"{uuid.uuid4().hex}.{extension}"
+
+    image.save(
+        os.path.join(
+            CHAT_IMAGE_UPLOAD_FOLDER,
+            stored_filename
+        )
+    )
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver.id,
+        content="Image",
+        message_type="image",
+        image_filename=stored_filename,
+        image_original_name=original_name
+    )
+
+    try:
+        db.session.add(message)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+        image_path = os.path.join(
+            CHAT_IMAGE_UPLOAD_FOLDER,
+            stored_filename
+        )
+
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
+        raise
+
+    image_url = (
+        f"/chat/images/{stored_filename}"
+    )
+
+    message_data = {
+        "id": message.id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "message_type": message.message_type,
+        "image_url": image_url,
+        "image_original_name": message.image_original_name,
+        "created_at": message.created_at.isoformat(),
+        "read_at": None,
+        "edited_at": None,
+        "reply_to": None,
+        "reactions": []
+    }
+
+    socketio.emit(
+        "new_message",
+        message_data,
+        to=f"user_{receiver.id}"
+    )
+
+    socketio.emit(
+        "message_sent",
+        message_data,
+        to=f"user_{current_user.id}"
+    )
+
+    return jsonify({
+        "message": "Image sent successfully.",
+        "data": message_data
     }), 201
 
 
@@ -294,6 +535,13 @@ def conversation(user_id):
                 "sender_id": message.sender_id,
                 "receiver_id": message.receiver_id,
                 "content": message.content,
+                "message_type": message.message_type,
+                "image_url": (
+                    f"/chat/images/{message.image_filename}"
+                    if message.image_filename
+                    else None
+                ),
+                "image_original_name": message.image_original_name,
                 "created_at": message.created_at.isoformat(),
                 "read_at": (
                     message.read_at.isoformat()
@@ -328,7 +576,6 @@ def conversation(user_id):
 # ---------------------------------------------------------
 
 from flask_socketio import join_room, emit
-from .extensions import socketio
 
 
 # Number of active Socket.IO connections for each user.
@@ -589,6 +836,9 @@ def socket_send_message(data):
         "sender_username": current_user.username,
         "receiver_id": message.receiver_id,
         "content": message.content,
+        "message_type": message.message_type,
+        "image_url": None,
+        "image_original_name": None,
         "created_at": message.created_at.isoformat(),
         "read_at": (
             message.read_at.isoformat()
@@ -600,6 +850,7 @@ def socket_send_message(data):
             if message.edited_at
             else None
         ),
+        "reactions": []
     }
 
     receiver_message_data = {
@@ -686,8 +937,30 @@ def socket_delete_message(data):
             })
             return
 
+        image_path = None
+
+        if (
+            message.message_type == "image"
+            and message.image_filename
+        ):
+            image_path = os.path.join(
+                CHAT_IMAGE_UPLOAD_FOLDER,
+                message.image_filename
+            )
+
         message.deleted_for_everyone_at = deleted_at
         db.session.commit()
+
+        # Delete the physical image only after the database
+        # successfully records deletion for everyone.
+        if image_path and os.path.isfile(image_path):
+            try:
+                os.remove(image_path)
+            except OSError as error:
+                print(
+                    "Could not remove deleted chat image:",
+                    error
+                )
 
         deletion_data = {
             "message_id": message.id,
@@ -764,6 +1037,13 @@ def socket_edit_message(data):
     if message.sender_id != current_user.id:
         emit("edit_message_error", {
             "error": "You can only edit your own messages."
+        })
+        return
+
+    # Image messages cannot be edited as text.
+    if message.message_type != "text":
+        emit("edit_message_error", {
+            "error": "Image messages cannot be edited."
         })
         return
 

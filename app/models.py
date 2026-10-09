@@ -70,6 +70,23 @@ class Message(db.Model):
         nullable=False
     )
 
+    message_type = db.Column(
+        db.String(20),
+        nullable=False,
+        default="text",
+        server_default="text"
+    )
+
+    image_filename = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
+    image_original_name = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
     reply_to_message_id = db.Column(
         db.Integer,
         db.ForeignKey("messages.id", ondelete="SET NULL"),

@@ -818,3 +818,152 @@ button:hover {
     border-color: #2563eb;
     background: #dbeafe;
 }
+
+/* Image sharing */
+.message-form .image-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    flex-shrink: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.message-form .image-button:hover:not(:disabled) {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.message-form .image-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.image-message-content {
+    max-width: 100%;
+}
+
+.chat-message-image {
+    display: block;
+    width: auto;
+    max-width: min(320px, 100%);
+    max-height: 360px;
+    border-radius: 10px;
+    object-fit: contain;
+    cursor: pointer;
+}
+
+.chat-image-name {
+    max-width: 320px;
+    margin-top: 6px;
+    overflow: hidden;
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.8;
+}
+
+@media (max-width: 700px) {
+    .message-form .image-button {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+    }
+
+    .chat-message-image {
+        max-width: min(240px, 100%);
+        max-height: 300px;
+    }
+
+    .chat-image-name {
+        max-width: 240px;
+    }
+}
+
+
+/* Full-screen in-app image viewer */
+body.image-viewer-open {
+    overflow: hidden;
+}
+
+.image-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 70px 24px 60px;
+    background: rgba(0, 0, 0, 0.92);
+}
+
+.image-viewer[hidden] {
+    display: none;
+}
+
+.image-viewer-image {
+    display: block;
+    max-width: 92vw;
+    max-height: 82vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.image-viewer-close {
+    position: absolute;
+    top: 18px;
+    right: 24px;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.image-viewer-close:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.image-viewer-name {
+    position: absolute;
+    right: 20px;
+    bottom: 18px;
+    left: 20px;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 0.9rem;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .image-viewer {
+        padding: 60px 12px 50px;
+    }
+
+    .image-viewer-image {
+        max-width: 100%;
+        max-height: 80vh;
+    }
+
+    .image-viewer-close {
+        top: 10px;
+        right: 10px;
+        width: 42px;
+        height: 42px;
+    }
+}

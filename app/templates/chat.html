@@ -130,6 +130,24 @@
                         </div>
                     </div>
 
+                    <button
+                        id="image-button"
+                        class="image-button"
+                        type="button"
+                        aria-label="Send image"
+                        title="Send image"
+                        disabled
+                    >
+                        📷
+                    </button>
+
+                    <input
+                        id="image-input"
+                        type="file"
+                        accept="image/png,image/jpeg,image/gif,image/webp"
+                        hidden
+                    >
+
                     <input
                         type="text"
                         id="message-input"
@@ -150,6 +168,35 @@
 
         </main>
 
+    </div>
+
+    <div
+        id="image-viewer"
+        class="image-viewer"
+        hidden
+        aria-hidden="true"
+    >
+        <button
+            id="image-viewer-close"
+            class="image-viewer-close"
+            type="button"
+            aria-label="Close image"
+            title="Close"
+        >
+            &times;
+        </button>
+
+        <img
+            id="image-viewer-image"
+            class="image-viewer-image"
+            src=""
+            alt="Shared image"
+        >
+
+        <div
+            id="image-viewer-name"
+            class="image-viewer-name"
+        ></div>
     </div>
 
     <script
