@@ -148,6 +148,24 @@
                         hidden
                     >
 
+                    <button
+                        id="video-button"
+                        class="image-button"
+                        type="button"
+                        aria-label="Send video"
+                        title="Send video"
+                        disabled
+                    >
+                        🎬
+                    </button>
+
+                    <input
+                        id="video-input"
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        hidden
+                    >
+
                     <input
                         type="text"
                         id="message-input"
@@ -155,6 +173,25 @@
                         autocomplete="off"
                         disabled
                     >
+
+                    <button
+                        id="voice-button"
+                        type="button"
+                        aria-label="Record voice note"
+                        title="Record voice note"
+                        disabled
+                    >
+                        🎤
+                    </button>
+
+                    <span
+                        id="voice-timer"
+                        class="voice-timer"
+                        hidden
+                        aria-live="off"
+                    >
+                        0:00
+                    </span>
 
                     <button
                         id="send-button"

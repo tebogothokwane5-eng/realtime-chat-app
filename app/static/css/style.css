@@ -967,3 +967,121 @@ body.image-viewer-open {
         height: 42px;
     }
 }
+
+
+/* Voice-note recording button */
+
+.message-form #voice-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.message-form #voice-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.message-form #voice-button.recording {
+    background: #dc2626;
+    color: white;
+    animation: voice-recording-pulse 1.5s infinite;
+}
+
+@keyframes voice-recording-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.65;
+    }
+}
+
+
+/* Voice-note recording timer */
+
+.voice-timer {
+    font-size: 14px;
+    font-weight: 600;
+    color: #dc2626;
+    white-space: nowrap;
+}
+
+.voice-timer[hidden] {
+    display: none;
+}
+
+
+/* Voice messages */
+
+.audio-message-content {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.chat-message-audio {
+    display: block;
+    width: 260px;
+    max-width: 100%;
+    height: 42px;
+}
+
+.chat-audio-duration {
+    font-size: 11px;
+    opacity: 0.75;
+    text-align: right;
+}
+
+@media (max-width: 600px) {
+    .chat-message-audio {
+        width: 210px;
+    }
+
+    .message-form #voice-button {
+        min-width: 38px;
+        min-height: 38px;
+    }
+}
+
+
+/* Chat video messages */
+
+.video-message-content {
+    max-width: 100%;
+    min-width: 0;
+}
+
+.chat-message-video {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    max-height: 360px;
+    height: auto;
+    border-radius: 10px;
+    background: #000;
+    object-fit: contain;
+}
+
+.chat-video-name {
+    margin-top: 6px;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+    .chat-message-video {
+        max-width: 240px;
+        max-height: 300px;
+    }
+}

@@ -11,6 +11,10 @@ const emojiButton = document.getElementById("emoji-button");
 const emojiPicker = document.getElementById("emoji-picker");
 const imageButton = document.getElementById("image-button");
 const imageInput = document.getElementById("image-input");
+const videoButton = document.getElementById("video-button");
+const videoInput = document.getElementById("video-input");
+const voiceButton = document.getElementById("voice-button");
+const voiceTimer = document.getElementById("voice-timer");
 
 const imageViewer = document.getElementById("image-viewer");
 const imageViewerImage =
@@ -38,6 +42,16 @@ let unreadCounts = new Map();
 let typingTimeout = null;
 let typingSent = false;
 let replyingToMessage = null;
+
+let mediaRecorder = null;
+let microphoneStream = null;
+let audioChunks = [];
+let recordingStartTime = null;
+let recordingTimerInterval = null;
+let recordingTimeout = null;
+let recordingReceiverId = null;
+
+const MAX_RECORDING_DURATION_MS = 5 * 60 * 1000;
 
 const socket = io();
 
@@ -177,6 +191,8 @@ async function selectUser(user, userElement) {
     sendButton.disabled = false;
     emojiButton.disabled = false;
     imageButton.disabled = false;
+    videoButton.disabled = false;
+    voiceButton.disabled = false;
 
     messageInput.focus();
 
@@ -407,6 +423,68 @@ function renderMessage(message) {
 
             content.appendChild(imageName);
         }
+    } else if (
+        message.message_type === "audio"
+        && message.audio_url
+    ) {
+        content.classList.add("audio-message-content");
+
+        const audio = document.createElement("audio");
+        audio.className = "chat-message-audio";
+        audio.controls = true;
+        audio.preload = "metadata";
+        audio.src = message.audio_url;
+
+        audio.setAttribute(
+            "aria-label",
+            "Play voice note"
+        );
+
+        content.appendChild(audio);
+
+        if (message.audio_duration_ms) {
+            const duration = document.createElement("div");
+            duration.className = "chat-audio-duration";
+
+            const totalSeconds = Math.ceil(
+                message.audio_duration_ms / 1000
+            );
+
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+
+            duration.textContent =
+                `${minutes}:${String(seconds).padStart(2, "0")}`;
+
+            content.appendChild(duration);
+        }
+    } else if (
+        message.message_type === "video"
+        && message.video_url
+    ) {
+        content.classList.add("video-message-content");
+
+        const video = document.createElement("video");
+        video.className = "chat-message-video";
+        video.src = message.video_url;
+        video.controls = true;
+        video.preload = "metadata";
+        video.playsInline = true;
+
+        video.setAttribute(
+            "aria-label",
+            "Play shared video"
+        );
+
+        content.appendChild(video);
+
+        if (message.video_original_name) {
+            const videoName = document.createElement("div");
+            videoName.className = "chat-video-name";
+            videoName.textContent = message.video_original_name;
+
+            content.appendChild(videoName);
+        }
     } else {
         content.textContent = message.content;
     }
@@ -608,7 +686,7 @@ function showMessageContextMenu(message, x, y) {
         Number(message.sender_id) === Number(currentUser.id);
 
     if (isSender) {
-        if (message.message_type !== "image") {
+        if (message.message_type === "text") {
             const editMessage =
                 document.createElement("button");
 
@@ -930,6 +1008,15 @@ document.addEventListener("click", (event) => {
 });
 
 
+videoButton.addEventListener("click", () => {
+    if (!selectedUser || videoButton.disabled) {
+        return;
+    }
+
+    videoInput.click();
+});
+
+
 imageButton.addEventListener("click", () => {
     if (!selectedUser || imageButton.disabled) {
         return;
@@ -1013,6 +1100,84 @@ imageInput.addEventListener("change", async () => {
 
         if (selectedUser) {
             imageButton.disabled = false;
+        }
+    }
+});
+
+
+videoInput.addEventListener("change", async () => {
+    const videoFile = videoInput.files[0];
+
+    if (!videoFile) {
+        return;
+    }
+
+    if (!selectedUser) {
+        videoInput.value = "";
+        return;
+    }
+
+    const allowedTypes = new Set([
+        "video/mp4",
+        "video/webm"
+    ]);
+
+    const extension = videoFile.name.split(".").pop().toLowerCase();
+
+    if (
+        !allowedTypes.has(videoFile.type) ||
+        !["mp4", "webm"].includes(extension)
+    ) {
+        alert("Unsupported video type. Use MP4 or WebM.");
+        videoInput.value = "";
+        return;
+    }
+
+    const maxVideoSize = 50 * 1024 * 1024;
+
+    if (videoFile.size === 0 || videoFile.size > maxVideoSize) {
+        alert("Video must be larger than 0 bytes and no more than 50 MB.");
+        videoInput.value = "";
+        return;
+    }
+
+    const receiverId = selectedUser.id;
+    const formData = new FormData();
+
+    formData.append("receiver_id", receiverId);
+    formData.append("video", videoFile);
+
+    videoButton.disabled = true;
+
+    try {
+        const response = await fetch("/chat/send-video", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Could not send video."
+            );
+        }
+
+        if (
+            selectedUser
+            && Number(selectedUser.id) === Number(receiverId)
+            && data.data
+        ) {
+            renderMessage(data.data);
+        }
+    } catch (error) {
+        console.error("Video upload failed:", error);
+        alert(error.message || "Could not send video.");
+    } finally {
+        videoInput.value = "";
+
+        if (selectedUser) {
+            videoButton.disabled = false;
         }
     }
 });
@@ -1380,5 +1545,232 @@ document.addEventListener("keydown", (event) => {
         && !imageViewer.hidden
     ) {
         closeImageViewer();
+    }
+});
+
+
+async function startVoiceRecording() {
+    if (!selectedUser || mediaRecorder) {
+        return;
+    }
+
+    if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia ||
+        typeof MediaRecorder === "undefined"
+    ) {
+        alert("Your browser does not support microphone recording.");
+        return;
+    }
+
+    const formats = [
+        { mime: "audio/webm;codecs=opus", extension: "webm" },
+        { mime: "audio/ogg;codecs=opus", extension: "ogg" },
+        { mime: "audio/mp4", extension: "mp4" }
+    ];
+
+    const supportedFormat = formats.find(
+        format => MediaRecorder.isTypeSupported(format.mime)
+    );
+
+    if (!supportedFormat) {
+        alert("No supported audio recording format was found.");
+        return;
+    }
+
+    voiceButton.disabled = true;
+
+    try {
+        microphoneStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: false
+            }
+        });
+
+        recordingReceiverId = selectedUser.id;
+        audioChunks = [];
+
+        mediaRecorder = new MediaRecorder(
+            microphoneStream,
+            { mimeType: supportedFormat.mime }
+        );
+
+        mediaRecorder.audioExtension = supportedFormat.extension;
+
+        mediaRecorder.addEventListener("dataavailable", event => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        });
+
+        mediaRecorder.start();
+
+        recordingStartTime = Date.now();
+
+        voiceButton.textContent = "⏹";
+        voiceButton.classList.add("recording");
+        voiceButton.title = "Stop and send voice note";
+        voiceButton.setAttribute(
+            "aria-label",
+            "Stop and send voice note"
+        );
+        voiceButton.disabled = false;
+
+        voiceTimer.hidden = false;
+        voiceTimer.textContent = "0:00";
+
+        recordingTimerInterval = setInterval(() => {
+            const elapsed = Date.now() - recordingStartTime;
+            const seconds = Math.floor(elapsed / 1000);
+
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+
+            voiceTimer.textContent =
+                `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+        }, 250);
+
+        recordingTimeout = setTimeout(() => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                stopVoiceRecording();
+            }
+        }, MAX_RECORDING_DURATION_MS);
+
+    } catch (error) {
+        console.error("Microphone recording failed:", error);
+
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
+        }
+
+        mediaRecorder = null;
+        recordingReceiverId = null;
+        voiceButton.disabled = !selectedUser;
+
+        alert(
+            "Could not access your microphone. " +
+            "Check your browser microphone permissions."
+        );
+    }
+}
+
+
+function stopVoiceRecording() {
+    if (!mediaRecorder || mediaRecorder.state !== "recording") {
+        return;
+    }
+
+    const recorder = mediaRecorder;
+    const receiverId = recordingReceiverId;
+    const durationMs = Math.max(
+        1,
+        Date.now() - recordingStartTime
+    );
+
+    clearInterval(recordingTimerInterval);
+    clearTimeout(recordingTimeout);
+
+    recordingTimerInterval = null;
+    recordingTimeout = null;
+
+    voiceButton.disabled = true;
+    voiceButton.textContent = "🎤";
+    voiceButton.classList.remove("recording");
+    voiceButton.title = "Record voice note";
+    voiceButton.setAttribute(
+        "aria-label",
+        "Record voice note"
+    );
+
+    voiceTimer.hidden = true;
+
+    recorder.addEventListener("stop", async () => {
+        const chunks = audioChunks;
+        audioChunks = [];
+
+        const audioBlob = new Blob(chunks, {
+            type: recorder.mimeType
+        });
+
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
+        }
+
+        mediaRecorder = null;
+        recordingReceiverId = null;
+        recordingStartTime = null;
+
+        if (audioBlob.size === 0) {
+            alert("No audio was recorded.");
+            voiceButton.disabled = !selectedUser;
+            return;
+        }
+
+        const extension = recorder.audioExtension || "webm";
+
+        const audioFile = new File(
+            [audioBlob],
+            `voice-note.${extension}`,
+            { type: recorder.mimeType }
+        );
+
+        const formData = new FormData();
+        formData.append("receiver_id", receiverId);
+        formData.append("audio", audioFile);
+        formData.append("duration_ms", durationMs);
+
+        try {
+            const response = await fetch("/chat/send-audio", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Could not send voice note."
+                );
+            }
+
+            if (
+                selectedUser
+                && Number(selectedUser.id) === Number(receiverId)
+                && data.data
+            ) {
+                renderMessage(data.data);
+            }
+
+            console.log("Voice note sent successfully.");
+
+        } catch (error) {
+            console.error("Voice-note upload failed:", error);
+
+            alert(
+                error.message || "Could not send voice note."
+            );
+
+        } finally {
+            voiceButton.disabled = !selectedUser;
+        }
+    }, { once: true });
+
+    recorder.stop();
+}
+
+
+voiceButton.addEventListener("click", async () => {
+    if (voiceButton.disabled || !selectedUser) {
+        return;
+    }
+
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        stopVoiceRecording();
+    } else if (!mediaRecorder) {
+        await startVoiceRecording();
     }
 });

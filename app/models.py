@@ -87,6 +87,31 @@ class Message(db.Model):
         nullable=True
     )
 
+    audio_filename = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
+    audio_original_name = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
+    audio_duration_ms = db.Column(
+        db.Integer,
+        nullable=True
+    )
+
+    video_filename = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
+    video_original_name = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
     reply_to_message_id = db.Column(
         db.Integer,
         db.ForeignKey("messages.id", ondelete="SET NULL"),

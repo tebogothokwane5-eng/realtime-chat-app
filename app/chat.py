@@ -31,6 +31,54 @@ ALLOWED_IMAGE_EXTENSIONS = {
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
 
+CHAT_AUDIO_UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(__file__),
+    "uploads",
+    "chat_audio"
+)
+
+ALLOWED_AUDIO_EXTENSIONS = {
+    "webm",
+    "ogg",
+    "mp4",
+    "m4a"
+}
+
+MAX_AUDIO_SIZE = 15 * 1024 * 1024
+
+
+
+CHAT_VIDEO_UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(__file__),
+    "uploads",
+    "chat_videos"
+)
+
+ALLOWED_VIDEO_EXTENSIONS = {
+    "mp4",
+    "webm"
+}
+
+MAX_VIDEO_SIZE = 50 * 1024 * 1024
+
+
+def allowed_video(filename):
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_VIDEO_EXTENSIONS
+    )
+
+
+def allowed_audio(filename):
+    return (
+        "." in filename
+        and
+        filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_AUDIO_EXTENSIONS
+    )
+
+
 def allowed_image(filename):
     return (
         "." in filename
@@ -42,6 +90,11 @@ def allowed_image(filename):
 
 os.makedirs(
     CHAT_IMAGE_UPLOAD_FOLDER,
+    exist_ok=True
+)
+
+os.makedirs(
+    CHAT_AUDIO_UPLOAD_FOLDER,
     exist_ok=True
 )
 
@@ -328,6 +381,74 @@ def chat_image(filename):
     )
 
 
+@chat_bp.route("/audio/<path:filename>", methods=["GET"])
+@login_required
+def chat_audio(filename):
+    message = (
+        Message.query
+        .filter(
+            Message.audio_filename == filename,
+            Message.message_type == "audio",
+            Message.deleted_for_everyone_at.is_(None),
+            or_(
+                and_(
+                    Message.sender_id == current_user.id,
+                    Message.deleted_for_sender_at.is_(None)
+                ),
+                and_(
+                    Message.receiver_id == current_user.id,
+                    Message.deleted_for_receiver_at.is_(None)
+                )
+            )
+        )
+        .first()
+    )
+
+    if message is None:
+        return jsonify({
+            "error": "Voice note not found."
+        }), 404
+
+    return send_from_directory(
+        CHAT_AUDIO_UPLOAD_FOLDER,
+        filename
+    )
+
+
+@chat_bp.route("/video/<path:filename>", methods=["GET"])
+@login_required
+def chat_video(filename):
+    message = (
+        Message.query
+        .filter(
+            Message.video_filename == filename,
+            Message.message_type == "video",
+            Message.deleted_for_everyone_at.is_(None),
+            or_(
+                and_(
+                    Message.sender_id == current_user.id,
+                    Message.deleted_for_sender_at.is_(None)
+                ),
+                and_(
+                    Message.receiver_id == current_user.id,
+                    Message.deleted_for_receiver_at.is_(None)
+                )
+            )
+        )
+        .first()
+    )
+
+    if message is None:
+        return jsonify({
+            "error": "Video not found."
+        }), 404
+
+    return send_from_directory(
+        CHAT_VIDEO_UPLOAD_FOLDER,
+        filename
+    )
+
+
 @chat_bp.route("/send-image", methods=["POST"])
 @login_required
 def send_image():
@@ -493,6 +614,273 @@ def send_image():
     }), 201
 
 
+@chat_bp.route("/send-audio", methods=["POST"])
+@login_required
+def send_audio():
+    receiver_id = request.form.get("receiver_id")
+    audio = request.files.get("audio")
+    duration_ms = request.form.get("duration_ms")
+
+    if not receiver_id:
+        return jsonify({
+            "error": "receiver_id is required."
+        }), 400
+
+    try:
+        receiver_id = int(receiver_id)
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "receiver_id must be a valid integer."
+        }), 400
+
+    if receiver_id == current_user.id:
+        return jsonify({
+            "error": "You cannot send a voice note to yourself."
+        }), 400
+
+    receiver = db.session.get(User, receiver_id)
+
+    if receiver is None:
+        return jsonify({
+            "error": "Receiver not found."
+        }), 404
+
+    if audio is None or not audio.filename:
+        return jsonify({
+            "error": "A voice-note file is required."
+        }), 400
+
+    original_name = secure_filename(audio.filename)
+
+    if not original_name or not allowed_audio(original_name):
+        return jsonify({
+            "error": (
+                "Unsupported voice-note format. "
+                "Use WebM, OGG, MP4, or M4A."
+            )
+        }), 400
+
+    audio.stream.seek(0, os.SEEK_END)
+    audio_size = audio.stream.tell()
+    audio.stream.seek(0)
+
+    if audio_size > MAX_AUDIO_SIZE:
+        return jsonify({
+            "error": "Voice note must be 15 MB or smaller."
+        }), 400
+
+    if audio_size <= 0:
+        return jsonify({
+            "error": "The voice-note file is empty."
+        }), 400
+
+    try:
+        duration_ms = int(duration_ms)
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "A valid voice-note duration is required."
+        }), 400
+
+    if duration_ms <= 0:
+        return jsonify({
+            "error": "Voice-note duration must be greater than zero."
+        }), 400
+
+    if duration_ms > 305000:
+        return jsonify({
+            "error": "Voice notes cannot exceed five minutes."
+        }), 400
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+
+    header = audio.stream.read(12)
+    audio.stream.seek(0)
+
+    valid_signatures = {
+        "webm": header.startswith(bytes.fromhex("1a45dfa3")),
+        "ogg": header.startswith(b"OggS"),
+        "mp4": header[4:8] == b"ftyp",
+        "m4a": header[4:8] == b"ftyp"
+    }
+
+    if not valid_signatures.get(extension, False):
+        return jsonify({
+            "error": "Invalid voice-note file format."
+        }), 400
+    stored_filename = f"{uuid.uuid4().hex}.{extension}"
+
+    audio_path = os.path.join(
+        CHAT_AUDIO_UPLOAD_FOLDER,
+        stored_filename
+    )
+
+    audio.save(audio_path)
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver.id,
+        content="Voice note",
+        message_type="audio",
+        audio_filename=stored_filename,
+        audio_original_name=original_name,
+        audio_duration_ms=duration_ms
+    )
+
+    try:
+        db.session.add(message)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+
+        raise
+
+    audio_url = f"/chat/audio/{stored_filename}"
+
+    message_data = {
+        "id": message.id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "message_type": message.message_type,
+        "image_url": None,
+        "image_original_name": None,
+        "audio_url": audio_url,
+        "audio_original_name": message.audio_original_name,
+        "audio_duration_ms": message.audio_duration_ms,
+        "created_at": message.created_at.isoformat(),
+        "read_at": None,
+        "edited_at": None,
+        "reply_to": None,
+        "reactions": []
+    }
+
+    socketio.emit(
+        "new_message",
+        message_data,
+        to=f"user_{receiver.id}"
+    )
+
+    socketio.emit(
+        "message_sent",
+        message_data,
+        to=f"user_{current_user.id}"
+    )
+
+    return jsonify({
+        "message": "Voice note sent successfully.",
+        "data": message_data
+    }), 201
+
+
+@chat_bp.route("/send-video", methods=["POST"])
+@login_required
+def send_video():
+    receiver_id = request.form.get("receiver_id")
+    video = request.files.get("video")
+
+    try:
+        receiver_id = int(receiver_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Valid receiver_id is required."}), 400
+
+    if receiver_id == current_user.id:
+        return jsonify({"error": "You cannot send a video to yourself."}), 400
+
+    receiver = db.session.get(User, receiver_id)
+
+    if receiver is None:
+        return jsonify({"error": "Receiver not found."}), 404
+
+    if video is None or not video.filename:
+        return jsonify({"error": "A video file is required."}), 400
+
+    original_name = secure_filename(video.filename)
+
+    if not original_name or not allowed_video(original_name):
+        return jsonify({"error": "Use an MP4 or WebM video."}), 400
+
+    video.stream.seek(0, os.SEEK_END)
+    video_size = video.stream.tell()
+    video.stream.seek(0)
+
+    if video_size <= 0:
+        return jsonify({"error": "Video file is empty."}), 400
+
+    if video_size > MAX_VIDEO_SIZE:
+        return jsonify({"error": "Video must be 50 MB or smaller."}), 400
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+
+    header = video.stream.read(12)
+    video.stream.seek(0)
+
+    valid_signature = (
+        header[4:8] == b"ftyp"
+        if extension == "mp4"
+        else header.startswith(bytes.fromhex("1a45dfa3"))
+    )
+
+    if not valid_signature:
+        return jsonify({"error": "Invalid video file format."}), 400
+
+    stored_filename = f"{uuid.uuid4().hex}.{extension}"
+    video_path = os.path.join(CHAT_VIDEO_UPLOAD_FOLDER, stored_filename)
+
+    os.makedirs(CHAT_VIDEO_UPLOAD_FOLDER, exist_ok=True)
+    video.save(video_path)
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver.id,
+        content="Video",
+        message_type="video",
+        video_filename=stored_filename,
+        video_original_name=original_name
+    )
+
+    try:
+        db.session.add(message)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        if os.path.exists(video_path):
+            os.remove(video_path)
+        raise
+
+    message_data = {
+        "id": message.id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "message_type": "video",
+        "image_url": None,
+        "image_original_name": None,
+        "audio_url": None,
+        "audio_original_name": None,
+        "audio_duration_ms": None,
+        "video_url": f"/chat/video/{stored_filename}",
+        "video_original_name": original_name,
+        "created_at": message.created_at.isoformat(),
+        "read_at": None,
+        "edited_at": None,
+        "reply_to": None,
+        "reactions": []
+    }
+
+    socketio.emit("new_message", message_data, to=f"user_{receiver.id}")
+    socketio.emit("message_sent", message_data, to=f"user_{current_user.id}")
+
+    return jsonify({
+        "message": "Video sent successfully.",
+        "data": message_data
+    }), 201
+
+
 @chat_bp.route("/conversation/<int:user_id>", methods=["GET"])
 @login_required
 def conversation(user_id):
@@ -542,6 +930,19 @@ def conversation(user_id):
                     else None
                 ),
                 "image_original_name": message.image_original_name,
+                "audio_url": (
+                    f"/chat/audio/{message.audio_filename}"
+                    if message.audio_filename
+                    else None
+                ),
+                "audio_original_name": message.audio_original_name,
+                "audio_duration_ms": message.audio_duration_ms,
+                "video_url": (
+                    f"/chat/video/{message.video_filename}"
+                    if message.video_filename
+                    else None
+                ),
+                "video_original_name": message.video_original_name,
                 "created_at": message.created_at.isoformat(),
                 "read_at": (
                     message.read_at.isoformat()
@@ -937,28 +1338,46 @@ def socket_delete_message(data):
             })
             return
 
-        image_path = None
+        attachment_path = None
 
         if (
             message.message_type == "image"
             and message.image_filename
         ):
-            image_path = os.path.join(
+            attachment_path = os.path.join(
                 CHAT_IMAGE_UPLOAD_FOLDER,
                 message.image_filename
+            )
+
+        elif (
+            message.message_type == "audio"
+            and message.audio_filename
+        ):
+            attachment_path = os.path.join(
+                CHAT_AUDIO_UPLOAD_FOLDER,
+                message.audio_filename
+            )
+
+        elif (
+            message.message_type == "video"
+            and message.video_filename
+        ):
+            attachment_path = os.path.join(
+                CHAT_VIDEO_UPLOAD_FOLDER,
+                message.video_filename
             )
 
         message.deleted_for_everyone_at = deleted_at
         db.session.commit()
 
-        # Delete the physical image only after the database
+        # Remove the attachment only after the database
         # successfully records deletion for everyone.
-        if image_path and os.path.isfile(image_path):
+        if attachment_path and os.path.isfile(attachment_path):
             try:
-                os.remove(image_path)
+                os.remove(attachment_path)
             except OSError as error:
                 print(
-                    "Could not remove deleted chat image:",
+                    "Could not remove deleted chat attachment:",
                     error
                 )
 
