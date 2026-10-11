@@ -1022,6 +1022,383 @@ def socket_connect():
     )
 
 
+# Active voice/video calls, indexed by unique call ID.
+# Each record identifies the caller, recipient, type and status.
+active_calls = {}
+
+
+@socketio.on("call_user")
+def socket_call_user(data):
+    """Send an incoming voice/video call notification."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid call data."}
+
+    try:
+        recipient_id = int(data.get("recipient_id"))
+    except (TypeError, ValueError):
+        return {"success": False, "error": "Invalid recipient."}
+
+    call_type = data.get("call_type")
+
+    if call_type not in ("voice", "video"):
+        return {"success": False, "error": "Invalid call type."}
+
+    if recipient_id == current_user.id:
+        return {"success": False, "error": "Cannot call yourself."}
+
+    recipient = db.session.get(User, recipient_id)
+
+    if recipient is None:
+        return {"success": False, "error": "Recipient not found."}
+
+    if recipient_id not in online_users:
+        return {"success": False, "error": "Recipient is offline."}
+
+    # Prevent overlapping calls for either participant.
+    for existing_call in active_calls.values():
+        participants = {
+            existing_call["caller_id"],
+            existing_call["recipient_id"]
+        }
+
+        if current_user.id in participants:
+            return {
+                "success": False,
+                "error": "You are already in a call."
+            }
+
+        if recipient_id in participants:
+            return {
+                "success": False,
+                "error": "Recipient is already in a call."
+            }
+
+    call_id = str(uuid.uuid4())
+
+    active_calls[call_id] = {
+        "caller_id": current_user.id,
+        "recipient_id": recipient_id,
+        "call_type": call_type,
+        "status": "ringing"
+    }
+
+    socketio.emit(
+        "incoming_call",
+        {
+            "call_id": call_id,
+            "caller_id": current_user.id,
+            "caller_username": current_user.username,
+            "call_type": call_type
+        },
+        to=f"user_{recipient_id}"
+    )
+
+    return {
+        "success": True,
+        "call_id": call_id,
+        "recipient_id": recipient_id,
+        "call_type": call_type
+    }
+
+
+@socketio.on("accept_call")
+def socket_accept_call(data):
+    """Accept an incoming voice/video call."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid call data."}
+
+    call_id = data.get("call_id")
+    call = active_calls.get(call_id) if isinstance(call_id, str) else None
+
+    if call is None:
+        return {"success": False, "error": "Call not found."}
+
+    if call["recipient_id"] != current_user.id:
+        return {"success": False, "error": "Not authorized to accept this call."}
+
+    if call["status"] != "ringing":
+        return {"success": False, "error": "Call is not ringing."}
+
+    call["status"] = "accepted"
+
+    socketio.emit(
+        "call_accepted",
+        {
+            "call_id": call_id,
+            "recipient_id": current_user.id
+        },
+        to=f'user_{call["caller_id"]}'
+    )
+
+    return {"success": True, "call_id": call_id}
+
+
+@socketio.on("reject_call")
+def socket_reject_call(data):
+    """Reject an incoming voice/video call."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid call data."}
+
+    call_id = data.get("call_id")
+    call = active_calls.get(call_id) if isinstance(call_id, str) else None
+
+    if call is None:
+        return {"success": False, "error": "Call not found."}
+
+    if call["recipient_id"] != current_user.id:
+        return {"success": False, "error": "Not authorized to reject this call."}
+
+    if call["status"] != "ringing":
+        return {"success": False, "error": "Call is not ringing."}
+
+    socketio.emit(
+        "call_rejected",
+        {
+            "call_id": call_id,
+            "recipient_id": current_user.id
+        },
+        to=f'user_{call["caller_id"]}'
+    )
+
+    del active_calls[call_id]
+
+    return {"success": True, "call_id": call_id}
+
+
+@socketio.on("end_call")
+def socket_end_call(data):
+    """End a voice/video call and notify the other participant."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid call data."}
+
+    call_id = data.get("call_id")
+
+    if not isinstance(call_id, str):
+        return {"success": False, "error": "Invalid call ID."}
+
+    call = active_calls.get(call_id)
+
+    if call is None:
+        return {"success": False, "error": "Call not found."}
+
+    caller_id = call["caller_id"]
+    recipient_id = call["recipient_id"]
+
+    if current_user.id not in (caller_id, recipient_id):
+        return {"success": False, "error": "Not authorized to end this call."}
+
+    other_user_id = (
+        recipient_id
+        if current_user.id == caller_id
+        else caller_id
+    )
+
+    del active_calls[call_id]
+
+    socketio.emit(
+        "call_ended",
+        {
+            "call_id": call_id,
+            "ended_by": current_user.id
+        },
+        to=f"user_{other_user_id}"
+    )
+
+    return {
+        "success": True,
+        "call_id": call_id
+    }
+
+
+@socketio.on("webrtc_offer")
+def socket_webrtc_offer(data):
+    """Forward a WebRTC offer to the accepted call recipient."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid signaling data."}
+
+    call_id = data.get("call_id")
+    offer = data.get("offer")
+
+    if not isinstance(call_id, str):
+        return {"success": False, "error": "Invalid call ID."}
+
+    if not isinstance(offer, dict):
+        return {"success": False, "error": "Invalid WebRTC offer."}
+
+    if offer.get("type") != "offer":
+        return {"success": False, "error": "Invalid offer type."}
+
+    if not isinstance(offer.get("sdp"), str):
+        return {"success": False, "error": "Invalid SDP."}
+
+    call = active_calls.get(call_id)
+
+    if call is None:
+        return {"success": False, "error": "Call not found."}
+
+    if call["caller_id"] != current_user.id:
+        return {"success": False, "error": "Not authorized to send offer."}
+
+    if call["status"] != "accepted":
+        return {"success": False, "error": "Call has not been accepted."}
+
+    socketio.emit(
+        "webrtc_offer",
+        {
+            "call_id": call_id,
+            "caller_id": current_user.id,
+            "offer": offer
+        },
+        to=f'user_{call["recipient_id"]}'
+    )
+
+    return {"success": True, "call_id": call_id}
+
+
+@socketio.on("webrtc_answer")
+def socket_webrtc_answer(data):
+    """Forward a WebRTC answer to the original caller."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid signaling data."}
+
+    call_id = data.get("call_id")
+    answer = data.get("answer")
+
+    if not isinstance(call_id, str):
+        return {"success": False, "error": "Invalid call ID."}
+
+    if not isinstance(answer, dict):
+        return {"success": False, "error": "Invalid WebRTC answer."}
+
+    if answer.get("type") != "answer":
+        return {"success": False, "error": "Invalid answer type."}
+
+    if not isinstance(answer.get("sdp"), str):
+        return {"success": False, "error": "Invalid SDP."}
+
+    call = active_calls.get(call_id)
+
+    if call is None:
+        return {"success": False, "error": "Call not found."}
+
+    if call["recipient_id"] != current_user.id:
+        return {
+            "success": False,
+            "error": "Not authorized to send answer."
+        }
+
+    if call["status"] != "accepted":
+        return {
+            "success": False,
+            "error": "Call has not been accepted."
+        }
+
+    socketio.emit(
+        "webrtc_answer",
+        {
+            "call_id": call_id,
+            "recipient_id": current_user.id,
+            "answer": answer
+        },
+        to=f'user_{call["caller_id"]}'
+    )
+
+    return {
+        "success": True,
+        "call_id": call_id
+    }
+
+
+@socketio.on("webrtc_ice_candidate")
+def socket_webrtc_ice_candidate(data):
+    """Forward ICE candidates between accepted call participants."""
+
+    if not current_user.is_authenticated:
+        return {"success": False, "error": "Authentication required."}
+
+    if not isinstance(data, dict):
+        return {"success": False, "error": "Invalid signaling data."}
+
+    call_id = data.get("call_id")
+    candidate = data.get("candidate")
+
+    if not isinstance(call_id, str):
+        return {"success": False, "error": "Invalid call ID."}
+
+    if not isinstance(candidate, dict):
+        return {"success": False, "error": "Invalid ICE candidate."}
+
+    candidate_string = candidate.get("candidate")
+
+    if not isinstance(candidate_string, str):
+        return {"success": False, "error": "Invalid candidate string."}
+
+    if len(candidate_string) > 8192:
+        return {"success": False, "error": "ICE candidate too large."}
+
+    call = active_calls.get(call_id)
+
+    if call is None:
+        return {"success": False, "error": "Call not found."}
+
+    if call["status"] != "accepted":
+        return {"success": False, "error": "Call has not been accepted."}
+
+    caller_id = call["caller_id"]
+    recipient_id = call["recipient_id"]
+
+    if current_user.id == caller_id:
+        target_id = recipient_id
+
+    elif current_user.id == recipient_id:
+        target_id = caller_id
+
+    else:
+        return {
+            "success": False,
+            "error": "Not authorized for this call."
+        }
+
+    socketio.emit(
+        "webrtc_ice_candidate",
+        {
+            "call_id": call_id,
+            "sender_id": current_user.id,
+            "candidate": candidate
+        },
+        to=f"user_{target_id}"
+    )
+
+    return {
+        "success": True,
+        "call_id": call_id
+    }
+
+
 @socketio.on("mark_read")
 def socket_mark_read(data):
     if not current_user.is_authenticated:
@@ -1661,6 +2038,32 @@ def socket_disconnect():
 
         if online_users[user_id] <= 0:
             del online_users[user_id]
+
+            # End calls when the user's last connection closes.
+            for call_id, call in list(active_calls.items()):
+                if user_id not in (
+                    call["caller_id"],
+                    call["recipient_id"]
+                ):
+                    continue
+
+                other_user_id = (
+                    call["recipient_id"]
+                    if user_id == call["caller_id"]
+                    else call["caller_id"]
+                )
+
+                del active_calls[call_id]
+
+                socketio.emit(
+                    "call_ended",
+                    {
+                        "call_id": call_id,
+                        "ended_by": user_id,
+                        "reason": "disconnected"
+                    },
+                    to=f"user_{other_user_id}"
+                )
 
             emit(
                 "user_status",

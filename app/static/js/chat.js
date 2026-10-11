@@ -16,6 +16,12 @@ const videoInput = document.getElementById("video-input");
 const voiceButton = document.getElementById("voice-button");
 const voiceTimer = document.getElementById("voice-timer");
 
+const startVoiceCallButton =
+    document.getElementById("start-voice-call");
+
+const startVideoCallButton =
+    document.getElementById("start-video-call");
+
 const imageViewer = document.getElementById("image-viewer");
 const imageViewerImage =
     document.getElementById("image-viewer-image");
@@ -71,6 +77,386 @@ async function loadCurrentUser() {
 
     return true;
 }
+
+
+
+// Group chat sidebar
+const groupsListElement = document.getElementById("groups-list");
+const createGroupButton = document.getElementById("create-group-button");
+
+let selectedGroup = null;
+
+async function loadGroups() {
+    if (!groupsListElement) {
+        return;
+    }
+
+    try {
+        const response = await fetch("/groups/");
+
+        if (!response.ok) {
+            throw new Error("Failed to load groups");
+        }
+
+        const data = await response.json();
+
+        groupsListElement.innerHTML = "";
+
+        if (!data.groups || data.groups.length === 0) {
+            groupsListElement.innerHTML =
+                '<p class="empty-text">No groups yet.</p>';
+            return;
+        }
+
+        data.groups.forEach((group) => {
+            const groupElement = document.createElement("div");
+
+            groupElement.className = "user-item group-item";
+            groupElement.dataset.groupId = group.id;
+
+            const nameElement = document.createElement("div");
+            nameElement.className = "user-name";
+            nameElement.textContent = "👥 " + group.name;
+
+            const detailsElement = document.createElement("div");
+            detailsElement.className = "user-status";
+            detailsElement.textContent =
+                group.member_count + " members";
+
+            groupElement.appendChild(nameElement);
+            groupElement.appendChild(detailsElement);
+
+            groupElement.addEventListener("click", () => {
+                selectGroup(group, groupElement);
+            });
+
+            groupsListElement.appendChild(groupElement);
+        });
+
+    } catch (error) {
+        console.error("Error loading groups:", error);
+
+        groupsListElement.innerHTML =
+            '<p class="empty-text">Could not load groups.</p>';
+    }
+}
+
+
+
+// Open a group conversation
+async function selectGroup(group, groupElement) {
+    cancelReply();
+
+    selectedUser = null;
+    selectedGroup = group;
+
+    updateCallButtons();
+
+    document.querySelectorAll(".user-item").forEach((element) => {
+        element.classList.remove("active");
+    });
+
+    groupElement.classList.add("active");
+
+    conversationNameElement.textContent = group.name;
+    conversationStatusElement.textContent =
+        group.member_count + " members";
+
+    messageInput.disabled = false;
+    sendButton.disabled = false;
+    emojiButton.disabled = false;
+
+    // Group media messaging will be implemented separately.
+    imageButton.disabled = true;
+    videoButton.disabled = true;
+    voiceButton.disabled = true;
+
+    messagesElement.innerHTML =
+        '<p class="empty-text">Loading group messages...</p>';
+
+    try {
+        const response = await fetch(
+            `/groups/${group.id}/messages`
+        );
+
+        if (!response.ok) {
+            throw new Error("Could not load group messages.");
+        }
+
+        const data = await response.json();
+
+        messagesElement.innerHTML = "";
+
+        if (!data.messages || data.messages.length === 0) {
+            messagesElement.innerHTML =
+                '<p class="empty-text">No messages yet. Say hello!</p>';
+        } else {
+            data.messages.forEach((message) => {
+                const row = document.createElement("div");
+                row.className = "message-row";
+
+                const bubble = document.createElement("div");
+                bubble.className = "message-bubble";
+
+                const sender = document.createElement("strong");
+                sender.textContent = message.sender_username;
+
+                const content = document.createElement("div");
+                content.textContent = message.content;
+
+                bubble.appendChild(sender);
+                bubble.appendChild(content);
+                row.appendChild(bubble);
+
+                messagesElement.appendChild(row);
+            });
+        }
+
+        messagesElement.scrollTop = messagesElement.scrollHeight;
+
+        if (socket.connected) {
+            socket.emit("join_group", {
+                group_id: group.id
+            });
+        }
+
+        messageInput.focus();
+
+    } catch (error) {
+        console.error("Group conversation error:", error);
+
+        messagesElement.innerHTML =
+            '<p class="empty-text">Could not load group conversation.</p>';
+    }
+}
+
+
+
+// Create a group using a single dialog.
+createGroupButton.addEventListener("click", async () => {
+    try {
+        const usersResponse = await fetch("/chat/users");
+
+        if (!usersResponse.ok) {
+            throw new Error("Could not load available users.");
+        }
+
+        const usersData = await usersResponse.json();
+        const users = usersData.users || [];
+
+        if (users.length === 0) {
+            alert("No other users are available.");
+            return;
+        }
+
+        const overlay = document.createElement("div");
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+
+        const dialog = document.createElement("div");
+        dialog.style.cssText = `
+            background: white;
+            color: #222;
+            padding: 24px;
+            border-radius: 14px;
+            width: 380px;
+            max-width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        `;
+
+        const heading = document.createElement("h3");
+        heading.textContent = "Create New Group";
+        heading.style.marginTop = "0";
+
+        const nameLabel = document.createElement("label");
+        nameLabel.textContent = "Group Name";
+        nameLabel.style.display = "block";
+        nameLabel.style.marginBottom = "8px";
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.placeholder = "Enter group name";
+        nameInput.maxLength = 100;
+        nameInput.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        `;
+
+        const membersHeading = document.createElement("h4");
+        membersHeading.textContent = "Select Members";
+
+        const checkboxes = [];
+
+        const membersContainer = document.createElement("div");
+        membersContainer.style.cssText = `
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        `;
+
+        users.forEach(user => {
+            const label = document.createElement("label");
+            label.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px;
+                cursor: pointer;
+                border-bottom: 1px solid #eee;
+            `;
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = user.id;
+
+            const username = document.createElement("span");
+            username.textContent = user.username || user.email;
+
+            label.appendChild(checkbox);
+            label.appendChild(username);
+            membersContainer.appendChild(label);
+
+            checkboxes.push(checkbox);
+        });
+
+        const buttonContainer = document.createElement("div");
+        buttonContainer.style.cssText = `
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        `;
+
+        const cancelButton = document.createElement("button");
+        cancelButton.textContent = "Cancel";
+        cancelButton.style.cssText = `
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #eee;
+            cursor: pointer;
+        `;
+
+        const createButton = document.createElement("button");
+        createButton.textContent = "Create Group";
+        createButton.style.cssText = `
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        `;
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(createButton);
+
+        dialog.appendChild(heading);
+        dialog.appendChild(nameLabel);
+        dialog.appendChild(nameInput);
+        dialog.appendChild(membersHeading);
+        dialog.appendChild(membersContainer);
+        dialog.appendChild(buttonContainer);
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        nameInput.focus();
+
+        let submitting = false;
+
+        const closeDialog = () => {
+            if (!submitting) {
+                overlay.remove();
+            }
+        };
+
+        cancelButton.addEventListener("click", closeDialog);
+
+        overlay.addEventListener("click", event => {
+            if (event.target === overlay) {
+                closeDialog();
+            }
+        });
+
+        createButton.addEventListener("click", async () => {
+            if (submitting) return;
+
+            const groupName = nameInput.value.trim();
+
+            if (!groupName || groupName.length > 100) {
+                alert("Enter a group name (1 to 100 characters).");
+                return;
+            }
+
+            const memberIds = checkboxes
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => Number(checkbox.value));
+
+            if (memberIds.length === 0) {
+                alert("Select at least one group member.");
+                return;
+            }
+
+            submitting = true;
+            createButton.disabled = true;
+            createButton.textContent = "Creating...";
+
+            try {
+                const response = await fetch("/groups/create", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name: groupName,
+                        member_ids: memberIds
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.error || "Could not create group."
+                    );
+                }
+
+                overlay.remove();
+                await loadGroups();
+                alert("Group created successfully!");
+
+            } catch (error) {
+                console.error("Create Group error:", error);
+                alert(error.message);
+
+            } finally {
+                submitting = false;
+                createButton.disabled = false;
+                createButton.textContent = "Create Group";
+            }
+        });
+
+    } catch (error) {
+        console.error("Create Group error:", error);
+        alert(error.message);
+    }
+});
 
 
 async function loadUsers() {
@@ -174,7 +560,18 @@ async function loadUsers() {
 
 async function selectUser(user, userElement) {
     cancelReply();
+
+    // Leave the previous group when opening a private chat.
+    if (selectedGroup && socket.connected) {
+        socket.emit("leave_group", {
+            group_id: selectedGroup.id
+        });
+    }
+
+    selectedGroup = null;
     selectedUser = user;
+
+    updateCallButtons();
 
     clearUnread(user.id);
 
@@ -1228,16 +1625,51 @@ messageInput.addEventListener("input", () => {
 });
 
 
-messageForm.addEventListener("submit", (event) => {
+messageForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (!selectedUser) {
+    if (!selectedUser && !selectedGroup) {
         return;
     }
 
     const content = messageInput.value.trim();
 
     if (!content) {
+        return;
+    }
+
+    // Send a group message through Flask.
+    if (selectedGroup) {
+        const groupId = selectedGroup.id;
+
+        try {
+            const response = await fetch(
+                `/groups/${groupId}/send`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ content: content })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "Could not send group message."
+                );
+            }
+
+            messageInput.value = "";
+            messageInput.focus();
+
+        } catch (error) {
+            console.error("Group message error:", error);
+            alert(error.message);
+        }
+
         return;
     }
 
@@ -1264,11 +1696,77 @@ messageForm.addEventListener("submit", (event) => {
 socket.on("connect", () => {
     console.log("Socket.IO connected.");
 
-    // If a conversation was already opened before Socket.IO connected,
-    // mark its incoming messages as read now.
+    updateCallButtons();
+
+    // Restore the selected group room after reconnection.
+    if (selectedGroup) {
+        socket.emit("join_group", {
+            group_id: selectedGroup.id
+        }, (response) => {
+            if (!response || !response.success) {
+                console.error("Could not rejoin group:", response);
+            }
+        });
+    }
+
+    // Restore private conversation read receipts.
     if (selectedUser) {
         markConversationRead(selectedUser.id);
     }
+});
+
+
+
+// Display group messages immediately through Socket.IO.
+socket.on("new_group_message", (message) => {
+    if (!selectedGroup) {
+        return;
+    }
+
+    if (Number(message.group_id) !== Number(selectedGroup.id)) {
+        return;
+    }
+
+    const emptyMessage = messagesElement.querySelector(".empty-text");
+
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+
+    // Prevent displaying the same message twice.
+    if (messagesElement.querySelector(
+        `[data-group-message-id="${message.id}"]`
+    )) {
+        return;
+    }
+
+    const row = document.createElement("div");
+    row.className = "message-row";
+    row.dataset.groupMessageId = message.id;
+
+    const isOwnMessage =
+        currentUser &&
+        Number(message.sender_id) === Number(currentUser.id);
+
+    if (isOwnMessage) {
+        row.classList.add("sent");
+    }
+
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+
+    const sender = document.createElement("strong");
+    sender.textContent = message.sender_username;
+
+    const content = document.createElement("div");
+    content.textContent = message.content;
+
+    bubble.appendChild(sender);
+    bubble.appendChild(content);
+    row.appendChild(bubble);
+
+    messagesElement.appendChild(row);
+    messagesElement.scrollTop = messagesElement.scrollHeight;
 });
 
 
@@ -1502,6 +2000,7 @@ async function initializeChat() {
         }
 
         await loadUsers();
+        await loadGroups();
 
     } catch (error) {
         console.error("Chat initialization error:", error);
@@ -1774,3 +2273,846 @@ voiceButton.addEventListener("click", async () => {
         await startVoiceRecording();
     }
 });
+
+
+// ========================================
+// Private voice and video call requests
+// ========================================
+
+let activeCallId = null;
+let activeCallType = null;
+
+function startPrivateCall(callType) {
+    if (!selectedUser || selectedGroup) {
+        alert("Select a private conversation first.");
+        return;
+    }
+
+    if (!socket.connected) {
+        alert("Connection lost. Please reconnect.");
+        return;
+    }
+
+    if (activeCallId) {
+        alert("You already have an active call.");
+        return;
+    }
+
+    const recipientId = Number(selectedUser.id);
+
+    startVoiceCallButton.disabled = true;
+    startVideoCallButton.disabled = true;
+
+    socket.emit(
+        "call_user",
+        {
+            recipient_id: recipientId,
+            call_type: callType
+        },
+        (response) => {
+            if (!response || !response.success) {
+                alert(
+                    response?.error || "Could not start call."
+                );
+
+                startVoiceCallButton.disabled = !selectedUser;
+                startVideoCallButton.disabled = !selectedUser;
+                return;
+            }
+
+            activeCallId = response.call_id;
+            activeCallType = callType;
+            updateCallButtons();
+
+            console.log(
+                "Call request sent:",
+                activeCallId,
+                callType
+            );
+
+            alert(
+                `${callType === "video" ? "Video" : "Voice"} `
+                + `call request sent to ${selectedUser.username}.`
+            );
+        }
+    );
+}
+
+startVoiceCallButton.addEventListener("click", () => {
+    startPrivateCall("voice");
+});
+
+startVideoCallButton.addEventListener("click", () => {
+    startPrivateCall("video");
+});
+
+
+// ========================================
+// Incoming voice and video calls
+// ========================================
+
+socket.on("incoming_call", (data) => {
+    console.log("Incoming call:", data);
+
+    if (activeCallId) {
+        socket.emit("reject_call", {
+            call_id: data.call_id
+        });
+        return;
+    }
+
+    const callType = data.call_type === "video"
+        ? "video"
+        : "voice";
+
+    const accepted = confirm(
+        `${data.caller_username} is calling you.\n\n`
+        + `Call type: ${callType}\n\n`
+        + "Press OK to accept or Cancel to reject."
+    );
+
+    if (accepted) {
+        activeCallId = data.call_id;
+        activeCallType = callType;
+        updateCallButtons();
+
+        socket.emit(
+            "accept_call",
+            { call_id: data.call_id },
+            (response) => {
+                if (!response || !response.success) {
+                    if (activeCallId === data.call_id) {
+                        activeCallId = null;
+                        cleanupWebRTCCall();
+                        updateCallButtons();
+                    }
+
+                    alert(
+                        response?.error || "Could not accept call."
+                    );
+                    return;
+                }
+
+                console.log(
+                    "Incoming call accepted:",
+                    activeCallId
+                );
+            }
+        );
+    } else {
+        socket.emit(
+            "reject_call",
+            { call_id: data.call_id },
+            (response) => {
+                if (!response || !response.success) {
+                    console.error(
+                        "Could not reject call:",
+                        response
+                    );
+                }
+            }
+        );
+    }
+});
+
+
+// ========================================
+// Handle rejected calls
+// ========================================
+
+socket.on("call_rejected", (data) => {
+    if (data.call_id !== activeCallId) {
+        return;
+    }
+
+    console.log("Call rejected:", data.call_id);
+
+    activeCallId = null;
+    cleanupWebRTCCall();
+    updateCallButtons();
+
+    startVoiceCallButton.disabled = !selectedUser;
+    startVideoCallButton.disabled = !selectedUser;
+
+    alert("Your call was rejected.");
+});
+
+
+// ========================================
+// Handle accepted calls
+// ========================================
+
+socket.on("call_accepted", async (data) => {
+    if (data.call_id !== activeCallId) {
+        return;
+    }
+
+    console.log("Call accepted:", data.call_id);
+
+    try {
+        await createAndSendWebRTCOffer(
+            data.call_id,
+            activeCallType
+        );
+
+        console.log("WebRTC offer negotiation started.");
+
+    } catch (error) {
+        console.error(
+            "Could not start WebRTC call:",
+            error
+        );
+
+        alert(
+            "WebRTC connection failed:\n"
+            + (error?.name || "Error")
+            + ": "
+            + (error?.message || String(error))
+        );
+
+        socket.emit("end_call", {
+            call_id: data.call_id
+        });
+
+        if (activeCallId === data.call_id) {
+            activeCallId = null;
+            cleanupWebRTCCall();
+            updateCallButtons();
+        }
+    }
+});
+
+
+// ========================================
+// Handle ended calls
+// ========================================
+
+socket.on("call_ended", (data) => {
+    if (data.call_id !== activeCallId) {
+        return;
+    }
+
+    console.log("Call ended:", data);
+
+    activeCallId = null;
+    cleanupWebRTCCall();
+    updateCallButtons();
+
+    startVoiceCallButton.disabled = !selectedUser || !!selectedGroup;
+    startVideoCallButton.disabled = !selectedUser || !!selectedGroup;
+
+    if (data.reason === "disconnected") {
+        alert("Call ended because the other user disconnected.");
+    } else {
+        alert("Call ended.");
+    }
+});
+
+
+// ========================================
+// Hang Up button
+// ========================================
+
+const endCallButton =
+    document.getElementById("end-call-button");
+
+function updateCallButtons() {
+    const inCall = !!activeCallId;
+    const privateChat = !!selectedUser && !selectedGroup;
+
+    startVoiceCallButton.disabled = !privateChat || inCall;
+    startVideoCallButton.disabled = !privateChat || inCall;
+
+    endCallButton.hidden = !inCall;
+}
+
+endCallButton.addEventListener("click", () => {
+    if (!activeCallId) {
+        return;
+    }
+
+    const callId = activeCallId;
+
+    // Notify the other participant.
+    socket.timeout(5000).emit(
+        "end_call",
+        { call_id: callId },
+        (error, response) => {
+            if (error || !response?.success) {
+                console.warn(
+                    "Could not confirm call ended on server:",
+                    error || response?.error
+                );
+            }
+        }
+    );
+
+    // End the local call immediately.
+    activeCallId = null;
+    cleanupWebRTCCall();
+    endCallButton.disabled = false;
+    updateCallButtons();
+
+    console.log("Local call ended.");
+});
+
+
+// ========================================
+// WebRTC configuration
+// ========================================
+
+const callMediaPanel =
+    document.getElementById("call-media-panel");
+
+const remoteVideo =
+    document.getElementById("remote-video");
+
+const localVideo =
+    document.getElementById("local-video");
+
+const remoteAudio =
+    document.getElementById("remote-audio");
+
+const rtcConfiguration = {
+    iceServers: [
+        {
+            urls: "stun:stun.l.google.com:19302"
+        }
+    ]
+};
+
+let peerConnection = null;
+let localCallStream = null;
+let remoteCallStream = null;
+
+function createPeerConnection() {
+    if (peerConnection) {
+        return peerConnection;
+    }
+
+    peerConnection = new RTCPeerConnection(
+        rtcConfiguration
+    );
+
+    remoteCallStream = new MediaStream();
+
+    remoteVideo.srcObject = remoteCallStream;
+    remoteAudio.srcObject = remoteCallStream;
+
+    peerConnection.onicecandidate = (event) => {
+        if (!event.candidate || !activeCallId) {
+            return;
+        }
+
+        socket.emit("webrtc_ice_candidate", {
+            call_id: activeCallId,
+            candidate: event.candidate.toJSON()
+        });
+
+        console.log("WebRTC ICE candidate sent.");
+    };
+
+    peerConnection.ontrack = (event) => {
+        console.log("Remote media track received.");
+
+        if (!remoteCallStream.getTracks().some(
+            track => track.id === event.track.id
+        )) {
+            remoteCallStream.addTrack(event.track);
+        }
+    };
+
+    const connection = peerConnection;
+
+    connection.onconnectionstatechange = () => {
+        const state = connection.connectionState;
+
+        console.log("WebRTC connection state:", state);
+
+        const status = document.getElementById("webrtc-status");
+
+        if (status) {
+            status.textContent = "WebRTC: " + state;
+        }
+    };
+
+    console.log("WebRTC peer connection initialized.");
+
+    return peerConnection;
+}
+
+
+// ========================================
+// WebRTC microphone and camera access
+// ========================================
+
+async function startLocalCallMedia(callType) {
+    if (localCallStream) {
+        return localCallStream;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+            "Microphone and camera access requires HTTPS or localhost."
+        );
+    }
+
+    const constraints = {
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+        },
+        video: callType === "video"
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(
+        constraints
+    );
+
+    localCallStream = stream;
+
+    localVideo.srcObject = stream;
+
+    localVideo.hidden = callType !== "video";
+    remoteVideo.hidden = callType !== "video";
+    remoteAudio.hidden = callType === "video";
+
+    // Only one remote media element should produce sound.
+    remoteVideo.muted = callType !== "video";
+    remoteAudio.muted = callType === "video";
+
+    // Never play our own microphone through the preview.
+    localVideo.muted = true;
+
+    callMediaPanel.hidden = false;
+
+    console.log(
+        "Local microphone/camera activated:",
+        callType
+    );
+
+    return stream;
+}
+
+
+// ========================================
+// Attach local media to WebRTC
+// ========================================
+
+async function prepareWebRTCCall(callType) {
+    if (peerConnection) {
+        throw new Error(
+            "A WebRTC connection is already active."
+        );
+    }
+
+    const stream = await startLocalCallMedia(callType);
+
+    const connection = createPeerConnection();
+
+    stream.getTracks().forEach((track) => {
+        connection.addTrack(track, stream);
+
+        console.log(
+            "Added WebRTC track:",
+            track.kind
+        );
+    });
+
+    console.log(
+        "WebRTC media preparation completed:",
+        callType
+    );
+
+    return connection;
+}
+
+
+// ========================================
+// WebRTC media cleanup
+// ========================================
+
+function cleanupWebRTCCall() {
+    if (peerConnection) {
+        peerConnection.ontrack = null;
+        peerConnection.onicecandidate = null;
+        peerConnection.onconnectionstatechange = null;
+
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    if (localCallStream) {
+        localCallStream.getTracks().forEach((track) => {
+            track.stop();
+        });
+
+        localCallStream = null;
+    }
+
+    if (remoteCallStream) {
+        remoteCallStream.getTracks().forEach((track) => {
+            track.stop();
+        });
+
+        remoteCallStream = null;
+    }
+
+    localVideo.pause();
+    remoteVideo.pause();
+    remoteAudio.pause();
+
+    localVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+    remoteAudio.srcObject = null;
+
+    callMediaPanel.hidden = true;
+
+    pendingIceCandidates = [];
+    activeCallType = null;
+
+    console.log("WebRTC media cleaned up.");
+}
+
+
+// ========================================
+// Receive WebRTC ICE candidates
+// ========================================
+
+let pendingIceCandidates = [];
+
+async function flushPendingIceCandidates() {
+    if (!peerConnection?.remoteDescription) {
+        return;
+    }
+
+    while (pendingIceCandidates.length > 0) {
+        const candidate = pendingIceCandidates.shift();
+
+        try {
+            await peerConnection.addIceCandidate(candidate);
+        } catch (error) {
+            console.error(
+                "Failed to add queued ICE candidate:",
+                error
+            );
+        }
+    }
+}
+
+socket.on("webrtc_ice_candidate", async (data) => {
+    if (!activeCallId || data.call_id !== activeCallId) {
+        return;
+    }
+
+    if (!data.candidate) {
+        return;
+    }
+
+    if (!peerConnection?.remoteDescription) {
+        pendingIceCandidates.push(data.candidate);
+
+        console.log("WebRTC ICE candidate queued.");
+        return;
+    }
+
+    try {
+        await peerConnection.addIceCandidate(
+            data.candidate
+        );
+
+        console.log("WebRTC ICE candidate received.");
+    } catch (error) {
+        console.error(
+            "Failed to add WebRTC ICE candidate:",
+            error
+        );
+    }
+});
+
+
+// ========================================
+// Create and send WebRTC offer
+// ========================================
+
+async function createAndSendWebRTCOffer(callId, callType) {
+    if (!callId || activeCallId !== callId) {
+        throw new Error("Call is no longer active.");
+    }
+
+    try {
+        const connection = await prepareWebRTCCall(
+            callType
+        );
+
+        if (activeCallId !== callId) {
+            cleanupWebRTCCall();
+            return;
+        }
+
+        const offer = await connection.createOffer();
+
+        await connection.setLocalDescription(offer);
+
+        if (activeCallId !== callId) {
+            cleanupWebRTCCall();
+            return;
+        }
+
+        socket.emit("webrtc_offer", {
+            call_id: callId,
+            offer: connection.localDescription.toJSON()
+        }, (response) => {
+            if (!response || !response.success) {
+                console.error(
+                    "WebRTC offer rejected:",
+                    response?.error
+                );
+            } else {
+                console.log("WebRTC offer sent successfully.");
+            }
+        });
+
+    } catch (error) {
+        console.error(
+            "Failed to create WebRTC offer:",
+            error
+        );
+
+        cleanupWebRTCCall();
+
+        throw error;
+    }
+}
+
+
+// ========================================
+// Receive and answer WebRTC offers
+// ========================================
+
+socket.on("webrtc_offer", async (data) => {
+    if (!activeCallId || data.call_id !== activeCallId) {
+        return;
+    }
+
+    if (!data.offer || data.offer.type !== "offer") {
+        console.error("Invalid WebRTC offer received.");
+        return;
+    }
+
+    try {
+        const connection = await prepareWebRTCCall(
+            activeCallType
+        );
+
+        if (activeCallId !== data.call_id) {
+            cleanupWebRTCCall();
+            return;
+        }
+
+        await connection.setRemoteDescription(
+            data.offer
+        );
+
+        await flushPendingIceCandidates();
+
+        const answer = await connection.createAnswer();
+
+        await connection.setLocalDescription(answer);
+
+        if (activeCallId !== data.call_id) {
+            cleanupWebRTCCall();
+            return;
+        }
+
+        socket.emit("webrtc_answer", {
+            call_id: data.call_id,
+            answer: connection.localDescription.toJSON()
+        }, (response) => {
+            if (!response || !response.success) {
+                console.error(
+                    "WebRTC answer rejected:",
+                    response?.error
+                );
+            } else {
+                console.log("WebRTC answer sent successfully.");
+            }
+        });
+
+    } catch (error) {
+        console.error(
+            "Failed to answer WebRTC offer:",
+            error
+        );
+
+        socket.emit("end_call", {
+            call_id: data.call_id
+        });
+
+        if (activeCallId === data.call_id) {
+            activeCallId = null;
+            cleanupWebRTCCall();
+            updateCallButtons();
+        }
+
+        alert(
+            "Could not establish the call. "
+            + "Please check microphone and camera permissions."
+        );
+    }
+});
+
+
+// ========================================
+// Receive WebRTC answers
+// ========================================
+
+socket.on("webrtc_answer", async (data) => {
+    if (!activeCallId || data.call_id !== activeCallId) {
+        return;
+    }
+
+    if (!data.answer || data.answer.type !== "answer") {
+        console.error("Invalid WebRTC answer received.");
+        return;
+    }
+
+    if (!peerConnection) {
+        console.error("No WebRTC peer connection exists.");
+        return;
+    }
+
+    try {
+        if (peerConnection.signalingState !== "have-local-offer") {
+            console.warn(
+                "Ignoring WebRTC answer in state:",
+                peerConnection.signalingState
+            );
+            return;
+        }
+
+        await peerConnection.setRemoteDescription(
+            data.answer
+        );
+
+        await flushPendingIceCandidates();
+
+        console.log(
+            "SUCCESS: WebRTC answer applied.",
+            peerConnection.connectionState
+        );
+
+    } catch (error) {
+        console.error(
+            "Failed to apply WebRTC answer:",
+            error
+        );
+
+        socket.emit("end_call", {
+            call_id: data.call_id
+        });
+
+        if (activeCallId === data.call_id) {
+            activeCallId = null;
+            cleanupWebRTCCall();
+            updateCallButtons();
+        }
+
+        alert("Failed to establish the WebRTC connection.");
+    }
+});
+
+
+// ========================================
+// Clean up calls when Socket.IO disconnects
+// ========================================
+
+socket.on("disconnect", (reason) => {
+    console.warn("Socket.IO disconnected:", reason);
+
+    if (activeCallId || peerConnection || localCallStream) {
+        activeCallId = null;
+        cleanupWebRTCCall();
+    }
+
+    updateCallButtons();
+});
+
+
+// Media Sharing Dropdown Functionality
+
+const mediaMenuButton = document.getElementById("media-menu-button");
+const mediaDropdown = document.getElementById("media-dropdown");
+const mediaImageOption = document.getElementById("media-image-option");
+const mediaVideoOption = document.getElementById("media-video-option");
+
+function closeMediaDropdown() {
+    mediaDropdown.hidden = true;
+    mediaMenuButton.setAttribute("aria-expanded", "false");
+}
+
+function updateMediaMenuState() {
+    const unavailable = imageButton.disabled && videoButton.disabled;
+
+    mediaMenuButton.disabled = unavailable;
+
+    if (unavailable) {
+        closeMediaDropdown();
+    }
+}
+
+mediaMenuButton.addEventListener("click", () => {
+    updateMediaMenuState();
+
+    if (mediaMenuButton.disabled) return;
+
+    mediaDropdown.hidden = !mediaDropdown.hidden;
+
+    mediaMenuButton.setAttribute(
+        "aria-expanded",
+        String(!mediaDropdown.hidden)
+    );
+});
+
+mediaImageOption.addEventListener("click", () => {
+    closeMediaDropdown();
+
+    if (!imageButton.disabled) {
+        imageButton.click();
+    }
+});
+
+mediaVideoOption.addEventListener("click", () => {
+    closeMediaDropdown();
+
+    if (!videoButton.disabled) {
+        videoButton.click();
+    }
+});
+
+document.addEventListener("click", (event) => {
+    if (!event.target.closest(".media-sharing-container")) {
+        closeMediaDropdown();
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeMediaDropdown();
+    }
+});
+
+const mediaStateObserver = new MutationObserver(updateMediaMenuState);
+
+mediaStateObserver.observe(imageButton, {
+    attributes: true,
+    attributeFilter: ["disabled"]
+});
+
+mediaStateObserver.observe(videoButton, {
+    attributes: true,
+    attributeFilter: ["disabled"]
+});
+
+updateMediaMenuState();

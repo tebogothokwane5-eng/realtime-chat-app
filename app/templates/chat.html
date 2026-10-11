@@ -36,6 +36,30 @@
                 </button>
             </div>
 
+            <!-- Group Chats -->
+            <div class="group-chat-section">
+                <div class="group-section-header">
+                    <h3>Group Chats</h3>
+
+                    <button
+                        id="create-group-button"
+                        type="button"
+                        class="create-group-button"
+                    >
+                        + Create Group
+                    </button>
+                </div>
+
+                <div id="groups-list" class="users-list">
+                    <p class="empty-text">No groups yet.</p>
+                </div>
+            </div>
+
+            <!-- Private Chats -->
+            <div class="private-chat-section">
+                <h3>Private Chats</h3>
+            </div>
+
             <div id="users-list" class="users-list">
                 <p class="empty-text">Loading users...</p>
             </div>
@@ -54,6 +78,36 @@
                     <p id="conversation-status">
                         Choose someone from the left
                     </p>
+                </div>
+
+                <div class="call-controls">
+                    <button
+                        id="start-voice-call"
+                        type="button"
+                        title="Start voice call"
+                        aria-label="Start voice call"
+                        disabled
+                    >
+                        📞
+                    </button>
+
+                    <button
+                        id="start-video-call"
+                        type="button"
+                        title="Start video call"
+                        aria-label="Start video call"
+                        disabled
+                    >
+                        📹
+                    </button>
+        <button
+            id="end-call-button"
+            type="button"
+            title="End call"
+            aria-label="End call"
+            hidden
+        >🔴 Hang Up</button>
+
                 </div>
             </div>
 
@@ -130,8 +184,45 @@
                         </div>
                     </div>
 
+                    <!-- Media Sharing Dropdown -->
+                    <div class="media-sharing-container">
+
+                        <button
+                            id="media-menu-button"
+                            class="media-menu-button"
+                            type="button"
+                            aria-label="Media sharing"
+                            aria-expanded="false"
+                            aria-controls="media-dropdown"
+                        >
+                            📎 Media ▾
+                        </button>
+
+                        <div
+                            id="media-dropdown"
+                            class="media-dropdown"
+                            hidden
+                        >
+                            <button
+                                id="media-image-option"
+                                type="button"
+                            >
+                                📷 Send Image
+                            </button>
+
+                            <button
+                                id="media-video-option"
+                                type="button"
+                            >
+                                🎬 Send Video
+                            </button>
+                        </div>
+
+                    </div>
+
                     <button
                         id="image-button"
+                        hidden
                         class="image-button"
                         type="button"
                         aria-label="Send image"
@@ -150,6 +241,7 @@
 
                     <button
                         id="video-button"
+                        hidden
                         class="image-button"
                         type="button"
                         aria-label="Send video"
@@ -236,9 +328,35 @@
         ></div>
     </div>
 
+
+
+
+<!-- WebRTC audio and video elements -->
+<div id="call-media-panel" hidden>
+    <div id="webrtc-status" style="color: white; padding: 8px;">
+        WebRTC: waiting
+    </div>
+    <video
+        id="remote-video"
+        autoplay
+        playsinline
+    ></video>
+
+    <video
+        id="local-video"
+        autoplay
+        playsinline
+        muted
+    ></video>
+
+    <audio
+        id="remote-audio"
+        autoplay
+    ></audio>
+</div>
+
     <script
         src="{{ url_for('static', filename='js/chat.js') }}"
     ></script>
-
 </body>
 </html>
