@@ -29,11 +29,17 @@ def create_app():
     from .chat import chat_bp
     from .groups import groups_bp
     from .views import views_bp
+    from .forwarding import forwarding_bp
+    from .status import status_bp
+    from .contacts import contacts_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(groups_bp)
     app.register_blueprint(views_bp)
+    app.register_blueprint(forwarding_bp)
+    app.register_blueprint(status_bp)
+    app.register_blueprint(contacts_bp)
 
     @app.route("/")
     def home():

@@ -1413,3 +1413,36 @@ body.image-viewer-open {
         min-width: 170px;
     }
 }
+
+/* ==========================================
+   BLACK PILL - PRIVATE AND GROUP CHAT WALLPAPER
+   ========================================== */
+
+.chat-app .messages {
+    background-image:
+        linear-gradient(
+            rgba(0, 0, 0, 0.35),
+            rgba(0, 0, 0, 0.55)
+        ),
+        url("/static/images/blackpill-background.png");
+
+    background-color: #050505;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: local;
+}
+
+/* Keep chat messages readable over the wallpaper */
+.chat-app .message-bubble {
+    position: relative;
+    z-index: 1;
+}
+
+/* Mobile wallpaper adjustments */
+@media (max-width: 600px) {
+    .chat-app .messages {
+        background-position: center center;
+        background-size: cover;
+    }
+}

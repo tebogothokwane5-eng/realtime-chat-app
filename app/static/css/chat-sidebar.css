@@ -1,0 +1,806 @@
+
+/* =========================================
+   Collapsible chat sidebar
+   ========================================= */
+
+.chat-app {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.chat-app .conversation {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Sidebar hidden by default */
+.chat-app .chat-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+
+    width: min(300px, 85vw);
+    max-width: 85vw;
+
+    z-index: 100;
+
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* Sidebar visible */
+.chat-app.sidebar-open .chat-sidebar {
+    transform: translateX(0);
+}
+
+/* Menu button */
+.sidebar-toggle-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    width: 42px;
+    height: 42px;
+
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+
+    background: #2563eb;
+    color: white;
+
+    font-size: 23px;
+    cursor: pointer;
+}
+
+/* Keep conversation header aligned */
+.conversation-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.conversation-header > div:not(.call-controls) {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Keep message bubbles within the conversation */
+.chat-app .messages {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+    .chat-app .chat-sidebar {
+        width: min(300px, 88vw);
+        max-width: 88vw;
+    }
+
+    .sidebar-toggle-button {
+        width: 40px;
+        height: 40px;
+        font-size: 21px;
+    }
+
+    .conversation-header {
+        gap: 8px;
+    }
+}
+
+
+/* Chats navigation button styling */
+
+.conversation-header #sidebar-toggle-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    width: auto;
+    min-width: 110px;
+    height: 44px;
+
+    padding: 10px 18px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: #2563eb;
+    color: white;
+
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.conversation-header #sidebar-toggle-button:hover {
+    background: #1d4ed8;
+}
+
+.conversation-header #sidebar-toggle-button:focus-visible {
+    outline: 3px solid #93c5fd;
+    outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    .conversation-header #sidebar-toggle-button {
+        min-width: 90px;
+        height: 40px;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+}
+
+
+/* Complete left Chats panel toggle */
+
+.chat-app {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+}
+
+/* Conversation fills the available space */
+.chat-app > .conversation {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+}
+
+/* Hide the entire Chats sidebar by default */
+.chat-app > #chat-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+
+    width: min(320px, 90vw);
+    height: 100%;
+
+    margin: 0;
+    flex: none;
+
+    transform: translateX(-110%);
+    visibility: hidden;
+    pointer-events: none;
+
+    transition:
+        transform 0.25s ease,
+        visibility 0.25s ease;
+
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+/* Show all Chats sidebar contents when opened */
+.chat-app.sidebar-open > #chat-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+}
+
+/* Keep the Chats menu above the conversation */
+#sidebar-toggle-button {
+    position: relative;
+    z-index: 10;
+}
+
+
+/* Dark gray Chats sidebar theme */
+
+.chat-app > #chat-sidebar {
+    background: #30343b;
+    color: #ffffff;
+    border-right: 1px solid #505761;
+}
+
+/* Sidebar headings and labels */
+#chat-sidebar h2,
+#chat-sidebar h3,
+#chat-sidebar p,
+#chat-sidebar .sidebar-header {
+    color: #ffffff;
+}
+
+/* Group and private chat sections */
+#chat-sidebar .group-chat-section,
+#chat-sidebar .private-chat-section,
+#chat-sidebar #groups-list,
+#chat-sidebar #users-list {
+    background: #30343b;
+    color: #ffffff;
+}
+
+/* Individual chat items */
+#chat-sidebar #groups-list > *,
+#chat-sidebar #users-list > * {
+    background: #3f454e;
+    color: #ffffff;
+    border-bottom: 1px solid #555d68;
+}
+
+/* Text inside chat items */
+#chat-sidebar #groups-list > * *,
+#chat-sidebar #users-list > * * {
+    color: inherit;
+}
+
+/* Hover effect */
+#chat-sidebar #groups-list > *:hover,
+#chat-sidebar #users-list > *:hover {
+    background: #515967;
+}
+
+/* Selected chat */
+#chat-sidebar #groups-list > *.active,
+#chat-sidebar #users-list > *.active,
+#chat-sidebar #groups-list > *.selected,
+#chat-sidebar #users-list > *.selected {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+/* Group chat emoji reactions */
+
+.group-reaction-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.group-reaction-button {
+    background: rgba(128, 128, 128, 0.15);
+    border: none;
+    border-radius: 20px;
+    padding: 5px 9px;
+    cursor: pointer;
+    font-size: 17px;
+}
+
+.group-reaction-button:hover {
+    background: rgba(128, 128, 128, 0.3);
+}
+
+.group-reaction-picker {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px;
+    background: #30343b;
+    border: 1px solid #505761;
+    border-radius: 25px;
+}
+
+.group-reaction-picker[hidden] {
+    display: none;
+}
+
+.group-reaction-picker button {
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    padding: 5px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.group-reaction-picker button:hover {
+    transform: scale(1.25);
+    background: #505761;
+}
+
+
+
+/* MODERN GROUP MESSAGE FLOATING ACTIONS */
+
+.message-row[data-group-message-id] .message-bubble {
+    cursor: pointer;
+    position: relative;
+}
+
+.message-row[data-group-message-id] .group-message-actions {
+    position: absolute;
+    top: calc(100% + 8px);
+    bottom: auto;
+    left: 0;
+    z-index: 100;
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+
+    width: max-content;
+    max-width: min(320px, 85vw);
+    padding: 10px;
+
+    background: #202630;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+
+    box-shadow:
+        0 12px 35px rgba(0, 0, 0, 0.35),
+        0 2px 8px rgba(0, 0, 0, 0.15);
+
+    color: #f8fafc;
+}
+
+.message-row[data-group-message-id].sent .group-message-actions {
+    left: auto;
+    right: 0;
+}
+
+/* Important: keep the menu hidden until tapped. */
+.message-row[data-group-message-id] .group-message-actions[hidden] {
+    display: none !important;
+}
+
+/* Emoji row */
+.message-row[data-group-message-id] .group-reaction-picker {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+
+    padding: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+}
+
+.message-row[data-group-message-id] .group-reaction-picker button {
+    width: 38px;
+    height: 38px;
+    padding: 4px;
+
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+
+    font-size: 21px;
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        transform 0.15s ease;
+}
+
+.message-row[data-group-message-id] .group-reaction-picker button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.12);
+}
+
+/* Reply action */
+.message-row[data-group-message-id] .group-message-actions > button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+
+    width: 100%;
+    padding: 10px 12px;
+
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.06);
+
+    border: none;
+    border-radius: 10px;
+
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.message-row[data-group-message-id] .group-message-actions > button:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+/* Hide the obsolete emoji toggle button. */
+.message-row[data-group-message-id]
+.group-message-actions > .group-reaction-button[hidden] {
+    display: none !important;
+}
+
+/* Small screens */
+@media (max-width: 600px) {
+    .message-row[data-group-message-id] .group-message-actions {
+        max-width: 92vw;
+        padding: 8px;
+    }
+
+    .message-row[data-group-message-id]
+    .group-reaction-picker button {
+        width: 34px;
+        height: 34px;
+        font-size: 19px;
+    }
+}
+
+
+/* MODERN SAVED GROUP REACTIONS */
+
+.message-row[data-group-message-id] .group-saved-reactions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.message-row[data-group-message-id]
+.group-saved-reactions .group-reaction-counts {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.message-row[data-group-message-id]
+.group-saved-reactions .message-reaction-chip {
+    padding: 4px 9px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.message-row[data-group-message-id]
+.group-saved-reactions .message-reaction-chip:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.message-row[data-group-message-id]
+.group-saved-reactions .message-reaction-chip.mine {
+    border-color: #60a5fa;
+    background: rgba(96, 165, 250, 0.22);
+}
+
+
+/* Red group message reaction popup */
+.message-row[data-group-message-id] .group-message-actions {
+    background: #B91C1C;
+    border: 1px solid #EF4444;
+    color: white;
+}
+
+/* Reaction popup buttons */
+.message-row[data-group-message-id] .group-message-actions > button {
+    color: white;
+}
+
+/* Button hover effect */
+.message-row[data-group-message-id] .group-message-actions button:hover {
+    background: #991B1B;
+}
+
+
+/* BLACK PILL STATUS NAVIGATION */
+
+.blackpill-navigation {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.blackpill-nav-button {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.blackpill-nav-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.blackpill-nav-button.active {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+}
+
+.blackpill-nav-button:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+    .blackpill-navigation {
+        padding: 10px;
+        gap: 6px;
+    }
+
+    .blackpill-nav-button {
+        padding: 11px 6px;
+        font-size: 13px;
+    }
+}
+
+
+/* BLACK PILL STATUS VISIBILITY */
+
+#status-panel[hidden],
+.group-chat-section[hidden],
+.private-chat-section[hidden],
+#users-list[hidden] {
+    display: none !important;
+}
+
+.blackpill-status-panel {
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.status-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.status-section-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+#my-status-list,
+#recent-status-list {
+    margin-bottom: 18px;
+}
+
+
+/* BLACK PILL STATUS FORM */
+
+#create-status-form[hidden],
+#add-status-button[hidden],
+#status-selected-contacts[hidden] {
+    display: none !important;
+}
+
+#create-status-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+    margin: 12px 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+#create-status-form label {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+#status-content,
+#status-privacy {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: #1f2937;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+#status-content {
+    resize: vertical;
+    min-height: 100px;
+}
+
+#publish-status-button {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #16a34a;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#cancel-status-button {
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: transparent;
+    color: white;
+    cursor: pointer;
+}
+
+#status-form-message {
+    margin: 0;
+    font-size: 13px;
+}
+
+
+/* BLACK PILL PHOTO STATUS STYLING */
+
+.blackpill-status-photo {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    max-height: 500px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    margin: 12px 0;
+    background: #111827;
+}
+
+@media (max-width: 600px) {
+    .blackpill-status-photo {
+        max-width: 100%;
+        max-height: 400px;
+    }
+}
+
+
+/* BLACK PILL VIDEO STATUS PLAYER */
+
+.blackpill-status-video {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    max-height: 500px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    background-color: #000;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+@media (max-width: 600px) {
+    .blackpill-status-video {
+        max-width: 100%;
+        max-height: 420px;
+        border-radius: 10px;
+    }
+}
+
+
+
+/* BLACK PILL GREEN VIDEO CAPTIONS */
+
+.blackpill-status-card .blackpill-video-caption {
+    color: #00c853;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.5;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+}
+
+
+
+/* BLACK PILL AUDIO STATUS PLAYER */
+
+.blackpill-status-card .blackpill-status-audio {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    height: 54px;
+    margin-top: 12px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+}
+
+/* BLACK PILL AUDIO STATUS CAPTIONS */
+
+.blackpill-status-card .blackpill-audio-caption {
+    color: #00c853;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.5;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+    .blackpill-status-card .blackpill-status-audio {
+        max-width: 100%;
+    }
+}
+
+
+
+/* BLACK PILL AUDIO CAPTION VISIBILITY FIX */
+
+.blackpill-status-card p.blackpill-audio-caption {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    color: #00c853 !important;
+    background-color: #111b16;
+
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.6;
+
+    padding: 12px 15px;
+    margin: 12px 0;
+
+    border-left: 4px solid #00c853;
+    border-radius: 8px;
+
+    overflow-wrap: anywhere;
+}
+
+
+
+/* BLACK PILL UNIFIED GREEN STATUS BAR */
+
+/* Every Status card gets a green accent */
+.blackpill-status-card {
+    border-left: 4px solid #00c853;
+}
+
+/* Text, photo, video and audio captions */
+.blackpill-status-card > p:not(:empty) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    color: #00c853 !important;
+    background-color: #111b16 !important;
+
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.6;
+
+    padding: 12px 15px;
+    margin: 12px 0;
+
+    border-left: 4px solid #00c853;
+    border-radius: 8px;
+
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+    .blackpill-status-card > p:not(:empty) {
+        font-size: 15px;
+        padding: 10px 12px;
+    }
+}

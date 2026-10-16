@@ -1,0 +1,1373 @@
+/* ==========================================
+   BLACK PILL — MODERN DARK INTERFACE
+   Version 1
+   ========================================== */
+
+:root {
+    --bp-background: #080d0b;
+    --bp-sidebar: #101916;
+    --bp-surface: #16221d;
+    --bp-border: #293a31;
+    --bp-green: #00c853;
+    --bp-green-hover: #00e676;
+    --bp-text: #f0f7f2;
+    --bp-muted: #9aafa2;
+}
+
+/* Main application */
+
+.chat-body {
+    background: var(--bp-background);
+}
+
+.chat-app {
+    background: var(--bp-background);
+    color: var(--bp-text);
+}
+
+/* Modern sidebar */
+
+.chat-app .chat-sidebar {
+    background: var(--bp-sidebar);
+    border-right: 1px solid var(--bp-border);
+}
+
+.chat-app .sidebar-header {
+    background: var(--bp-sidebar);
+    border-bottom: 1px solid var(--bp-border);
+}
+
+/* Conversation layout */
+
+.chat-app .conversation {
+    background: var(--bp-background);
+}
+
+.chat-app .conversation-header {
+    background: var(--bp-sidebar);
+    border-bottom: 1px solid var(--bp-border);
+    color: var(--bp-text);
+}
+
+.chat-app .conversation-header h2 {
+    color: var(--bp-text);
+}
+
+/* Message composer */
+
+.chat-app .message-form {
+    background: var(--bp-sidebar);
+    border-top: 1px solid var(--bp-border);
+}
+
+.chat-app .message-form input {
+    background: var(--bp-surface);
+    border: 1px solid var(--bp-border);
+    color: var(--bp-text);
+    border-radius: 24px;
+    transition: border-color 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+.chat-app .message-form input:focus {
+    border-color: var(--bp-green);
+    box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.12);
+}
+
+.chat-app .message-form input::placeholder {
+    color: var(--bp-muted);
+}
+
+/* Accessible keyboard focus */
+
+.chat-app button:focus-visible,
+.chat-app a:focus-visible {
+    outline: 2px solid var(--bp-green-hover);
+    outline-offset: 2px;
+}
+
+/* Mobile adjustments */
+
+@media (max-width: 600px) {
+    .chat-app .conversation-header {
+        padding: 12px;
+    }
+
+    .chat-app .message-form {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .chat-app .message-form input {
+        font-size: 16px;
+    }
+}
+
+
+/* BLACK PILL GLOSSY BLUE MESSAGE INPUT */
+
+/* Keep the existing emoji and media controls */
+.chat-app .message-composer {
+    gap: 10px;
+}
+
+/* Glossy blue pill-shaped message field */
+.chat-app .message-composer #message-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 58px;
+    padding: 0 68px 0 24px;
+
+    border: 3px solid #3679cf;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255,255,255,0.28) 0%,
+            rgba(255,255,255,0.10) 42%,
+            rgba(0,45,125,0.12) 50%,
+            rgba(0,35,100,0.25) 100%
+        ),
+        linear-gradient(
+            90deg,
+            #478fdb 0%,
+            #67b5eb 50%,
+            #367fd5 100%
+        );
+
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 500;
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        inset 0 -3px 5px rgba(0,30,100,0.25),
+        0 4px 12px rgba(0,70,180,0.30);
+
+    outline: none;
+}
+
+/* Message placeholder */
+.chat-app .message-composer #message-input::placeholder {
+    color: rgba(255,255,255,0.88);
+}
+
+/* Blue glow when typing */
+.chat-app .message-composer #message-input:focus {
+    border-color: #83caff;
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        0 0 0 3px rgba(70,160,255,0.18),
+        0 4px 16px rgba(0,110,255,0.35);
+}
+
+/* Microphone visually integrated into the right end */
+.chat-app .message-composer #voice-button {
+    position: relative;
+    z-index: 2;
+
+    margin-left: -66px;
+    margin-right: 8px;
+
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+
+    padding: 0;
+    border: 0;
+    border-left: 1px solid rgba(255,255,255,0.28);
+    border-radius: 0 24px 24px 0;
+
+    background: transparent;
+    color: #ffffff;
+    font-size: 24px;
+
+    box-shadow: none;
+}
+
+/* Preserve the recording indicator */
+.chat-app .message-composer #voice-button.recording {
+    background: #dc2626;
+    border-radius: 50%;
+}
+
+/* Smaller screens */
+@media (max-width: 600px) {
+    .chat-app .message-composer {
+        gap: 7px;
+    }
+
+    .chat-app .message-composer #message-input {
+        height: 50px;
+        padding-left: 16px;
+        padding-right: 54px;
+        font-size: 16px;
+    }
+
+    .chat-app .message-composer #voice-button {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        min-height: 40px;
+        margin-left: -54px;
+        margin-right: 7px;
+        font-size: 21px;
+    }
+}
+
+
+/* BLACK PILL GLOSSY BLUE MEDIA AND EMOJI BUTTONS */
+
+.chat-app .message-composer .emoji-button,
+.chat-app .message-composer .media-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 48px;
+    min-height: 48px;
+
+    border: 2px solid #3679cf;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255,255,255,0.28) 0%,
+            rgba(255,255,255,0.10) 42%,
+            rgba(0,45,125,0.12) 50%,
+            rgba(0,35,100,0.25) 100%
+        ),
+        linear-gradient(
+            90deg,
+            #478fdb 0%,
+            #67b5eb 50%,
+            #367fd5 100%
+        );
+
+    color: #ffffff;
+    font-weight: 600;
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        inset 0 -3px 5px rgba(0,30,100,0.25),
+        0 4px 12px rgba(0,70,180,0.30);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+/* Circular emoji button */
+.chat-app .message-composer .emoji-button {
+    width: 48px;
+    min-width: 48px;
+    padding: 0;
+    font-size: 23px;
+}
+
+/* Rounded media button */
+.chat-app .message-composer .media-menu-button {
+    width: auto;
+    padding: 0 18px;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+/* Hover effect */
+.chat-app .message-composer .emoji-button:hover:not(:disabled),
+.chat-app .message-composer .media-menu-button:hover:not(:disabled) {
+    background:
+        linear-gradient(
+            180deg,
+            #86cfff 0%,
+            #4a9de8 50%,
+            #2369c4 100%
+        );
+
+    border-color: #83caff;
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        0 0 0 3px rgba(70,160,255,0.18),
+        0 4px 16px rgba(0,110,255,0.35);
+
+    transform: translateY(-1px);
+}
+
+/* Disabled buttons */
+.chat-app .message-composer .emoji-button:disabled,
+.chat-app .message-composer .media-menu-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+    .chat-app .message-composer .emoji-button {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        min-height: 40px;
+        font-size: 20px;
+    }
+
+    .chat-app .message-composer .media-menu-button {
+        height: 40px;
+        min-height: 40px;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+}
+
+
+/* BLACK PILL GLOSSY BLUE SEND BUTTON */
+
+.chat-app .message-composer #send-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    height: 48px;
+    min-height: 48px;
+    padding: 0 22px;
+
+    border: 2px solid #3679cf;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255,255,255,0.28) 0%,
+            rgba(255,255,255,0.10) 42%,
+            rgba(0,45,125,0.12) 50%,
+            rgba(0,35,100,0.25) 100%
+        ),
+        linear-gradient(
+            90deg,
+            #478fdb 0%,
+            #67b5eb 50%,
+            #367fd5 100%
+        );
+
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        inset 0 -3px 5px rgba(0,30,100,0.25),
+        0 4px 12px rgba(0,70,180,0.30);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.chat-app .message-composer #send-button:hover:not(:disabled) {
+    border-color: #83caff;
+
+    background:
+        linear-gradient(
+            180deg,
+            #86cfff 0%,
+            #4a9de8 50%,
+            #2369c4 100%
+        );
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        0 0 0 3px rgba(70,160,255,0.18),
+        0 4px 16px rgba(0,110,255,0.35);
+
+    transform: translateY(-1px);
+}
+
+.chat-app .message-composer #send-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+    .chat-app .message-composer #send-button {
+        height: 40px;
+        min-height: 40px;
+        padding: 0 12px;
+        font-size: 13px;
+    }
+}
+
+
+/* BLACK PILL GLASS CHAT BUBBLES */
+
+/* Shared glass appearance */
+.chat-app .message-row .message-bubble {
+    position: relative;
+
+    padding: 15px 20px;
+
+    border: 1px solid rgba(190, 215, 245, 0.52);
+    border-radius: 25px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(230, 240, 255, 0.19) 0%,
+            rgba(130, 160, 195, 0.08) 12%,
+            rgba(8, 12, 20, 0.75) 27%,
+            rgba(5, 8, 15, 0.82) 76%,
+            rgba(150, 175, 210, 0.20) 94%,
+            rgba(225, 235, 255, 0.33) 100%
+        );
+
+    color: #f5f8ff;
+
+    box-shadow:
+        inset 0 2px 2px rgba(235, 245, 255, 0.38),
+        inset 0 -3px 3px rgba(200, 220, 255, 0.22),
+        inset 2px 0 3px rgba(130, 165, 205, 0.12),
+        inset -2px 0 3px rgba(130, 165, 205, 0.12),
+        0 5px 12px rgba(0, 0, 0, 0.45),
+        0 0 8px rgba(100, 155, 230, 0.12);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    overflow: visible;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+/* Sent message */
+.chat-app .message-row.sent .message-bubble {
+    border-radius: 25px 25px 8px 25px;
+}
+
+/* Received message */
+.chat-app .message-row.received .message-bubble {
+    border-radius: 25px 25px 25px 8px;
+}
+
+/* Glass speech tails */
+.chat-app .message-row.sent .message-bubble::after,
+.chat-app .message-row.received .message-bubble::after {
+    content: "";
+    position: absolute;
+
+    bottom: -7px;
+    width: 17px;
+    height: 17px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 18, 29, 0.94) 30%,
+            rgba(125, 155, 195, 0.45) 85%,
+            rgba(215, 230, 255, 0.65) 100%
+        );
+
+    border-bottom: 1px solid rgba(195, 220, 255, 0.65);
+
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* Right-side tail */
+.chat-app .message-row.sent .message-bubble::after {
+    left: auto;
+    right: 9px;
+}
+
+/* Left-side tail */
+.chat-app .message-row.received .message-bubble::after {
+    right: auto;
+    left: 9px;
+}
+
+/* Remove previous decorative corner */
+.chat-app .message-row.sent .message-bubble::before {
+    content: none;
+}
+
+/* Glass hover effect */
+.chat-app .message-row .message-bubble:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        inset 0 2px 3px rgba(240, 248, 255, 0.45),
+        inset 0 -3px 4px rgba(200, 220, 255, 0.25),
+        0 8px 20px rgba(0, 0, 0, 0.55),
+        0 0 15px rgba(110, 170, 255, 0.22);
+}
+
+/* Readable text inside glass */
+.chat-app .message-row .message-bubble .message-content {
+    color: #f5f8ff;
+    overflow-wrap: anywhere;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .chat-app .message-row .message-bubble {
+        max-width: 85%;
+        padding: 12px 15px;
+        border-radius: 20px;
+    }
+
+    .chat-app .message-row.sent .message-bubble {
+        border-radius: 20px 20px 7px 20px;
+    }
+
+    .chat-app .message-row.received .message-bubble {
+        border-radius: 20px 20px 20px 7px;
+    }
+}
+
+
+/* BLACK PILL GLOSSY BLUE NAVIGATION AND VIDEO CALL */
+
+/* Match the glossy blue message input */
+.chat-app #start-video-call,
+.chat-app #chats-tab-button,
+.chat-app #sidebar-toggle-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 44px;
+    padding: 9px 18px;
+
+    border: 2px solid #3679cf;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255,255,255,0.28) 0%,
+            rgba(255,255,255,0.10) 42%,
+            rgba(0,45,125,0.12) 50%,
+            rgba(0,35,100,0.25) 100%
+        ),
+        linear-gradient(
+            90deg,
+            #478fdb 0%,
+            #67b5eb 50%,
+            #367fd5 100%
+        );
+
+    color: #ffffff;
+    font-weight: 700;
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        inset 0 -3px 5px rgba(0,30,100,0.25),
+        0 4px 12px rgba(0,70,180,0.30);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+/* Keep video call button compact */
+.chat-app #start-video-call {
+    min-width: 48px;
+    padding: 8px 12px;
+    font-size: 20px;
+}
+
+/* Highlight active Chats tab */
+.chat-app #chats-tab-button.active {
+    border-color: #a5dcff;
+
+    box-shadow:
+        inset 0 2px 4px rgba(255,255,255,0.50),
+        0 0 0 2px rgba(70,160,255,0.15),
+        0 4px 15px rgba(0,110,255,0.40);
+}
+
+/* Hover effects */
+.chat-app #start-video-call:hover:not(:disabled),
+.chat-app #chats-tab-button:hover:not(:disabled),
+.chat-app #sidebar-toggle-button:hover:not(:disabled) {
+    border-color: #83caff;
+
+    background:
+        linear-gradient(
+            180deg,
+            #86cfff 0%,
+            #4a9de8 50%,
+            #2369c4 100%
+        );
+
+    box-shadow:
+        inset 0 2px 3px rgba(255,255,255,0.45),
+        0 0 0 3px rgba(70,160,255,0.18),
+        0 4px 16px rgba(0,110,255,0.35);
+
+    transform: translateY(-1px);
+}
+
+/* Disabled video call button */
+.chat-app #start-video-call:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Mobile sizing */
+@media (max-width: 600px) {
+    .chat-app #start-video-call {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 6px 9px;
+        font-size: 18px;
+    }
+
+    .chat-app #sidebar-toggle-button {
+        min-height: 40px;
+        padding: 7px 12px;
+        font-size: 13px;
+    }
+}
+
+
+/* BLACK PILL DARK EMOJI WALLPAPER */
+
+.chat-app .messages {
+    background-image:
+        linear-gradient(
+            rgba(0, 0, 0, 0.85),
+            rgba(0, 0, 0, 0.85)
+        ),
+        url("/static/images/emoji-background.webp");
+
+    background-color: #050505;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-attachment: local;
+}
+
+/* Preserve wallpaper on mobile */
+@media (max-width: 600px) {
+    .chat-app .messages {
+        background-size: cover;
+        background-position: center center;
+    }
+}
+
+
+/* BLACK PILL GLOSSY GLASS SIDEBAR */
+
+/* Main sidebar glass surface */
+.chat-app .chat-sidebar {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(210, 230, 255, 0.12) 0%,
+            rgba(35, 48, 68, 0.35) 8%,
+            rgba(7, 11, 19, 0.94) 30%,
+            rgba(3, 6, 12, 0.96) 75%,
+            rgba(100, 135, 180, 0.16) 100%
+        );
+
+    border-right: 1px solid rgba(185, 215, 255, 0.45);
+
+    box-shadow:
+        inset 2px 0 3px rgba(220, 235, 255, 0.18),
+        inset -3px 0 6px rgba(160, 195, 245, 0.20),
+        5px 0 20px rgba(0, 0, 0, 0.50),
+        2px 0 12px rgba(80, 145, 230, 0.12);
+
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* Glossy sidebar header */
+.chat-app .sidebar-header {
+    background:
+        linear-gradient(
+            180deg,
+            rgba(215, 230, 255, 0.17) 0%,
+            rgba(55, 80, 115, 0.12) 18%,
+            rgba(5, 9, 17, 0.70) 65%,
+            rgba(135, 165, 210, 0.14) 100%
+        );
+
+    border-bottom: 1px solid rgba(190, 215, 250, 0.35);
+
+    box-shadow:
+        inset 0 2px 3px rgba(225, 240, 255, 0.22),
+        0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Sidebar heading */
+.chat-app .sidebar-header h2 {
+    color: #f5f8ff;
+
+    text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.8),
+        0 0 12px rgba(120, 175, 255, 0.25);
+}
+
+/* Current username */
+.chat-app #current-user {
+    color: #c5d5e9;
+}
+
+/* Keep sidebar navigation transparent */
+.chat-app .blackpill-navigation {
+    background: transparent;
+}
+
+/* Subtle reflective navigation border */
+.chat-app .blackpill-navigation {
+    border-bottom: 1px solid rgba(180, 210, 250, 0.20);
+}
+
+/* Preserve existing sidebar scrolling */
+.chat-app .chat-sidebar {
+    overflow-y: auto;
+}
+
+/* Mobile glass sidebar */
+@media (max-width: 600px) {
+    .chat-app .chat-sidebar {
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+}
+
+
+/* BLACK PILL FULL HEIGHT GLASS SIDEBAR */
+
+/* Apply glass background across the entire sidebar */
+.chat-app > #chat-sidebar {
+    background:
+        linear-gradient(
+            160deg,
+            rgba(210, 230, 255, 0.16) 0%,
+            rgba(55, 80, 115, 0.22) 8%,
+            rgba(9, 15, 27, 0.96) 25%,
+            rgba(5, 9, 18, 0.97) 65%,
+            rgba(105, 145, 205, 0.20) 100%
+        ) !important;
+
+    border-right: 1px solid rgba(180, 215, 255, 0.45);
+
+    box-shadow:
+        inset 2px 0 4px rgba(225, 240, 255, 0.20),
+        inset -3px 0 8px rgba(130, 180, 255, 0.15),
+        5px 0 22px rgba(0, 0, 0, 0.50);
+}
+
+/* Remove opaque backgrounds covering the glass */
+.chat-app #chat-sidebar .group-chat-section,
+.chat-app #chat-sidebar .private-chat-section,
+.chat-app #chat-sidebar #groups-list,
+.chat-app #chat-sidebar #users-list,
+.chat-app #chat-sidebar .users-list,
+.chat-app #chat-sidebar .blackpill-status-panel,
+.chat-app #chat-sidebar .blackpill-navigation {
+    background: transparent !important;
+}
+
+/* Give individual contacts a subtle glass finish */
+.chat-app #chat-sidebar #groups-list > *,
+.chat-app #chat-sidebar #users-list > * {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(180, 210, 255, 0.12),
+            rgba(20, 30, 48, 0.42) 45%,
+            rgba(5, 10, 20, 0.48)
+        ) !important;
+
+    border-bottom: 1px solid rgba(170, 205, 255, 0.16);
+}
+
+/* Glass reflection when hovering over contacts */
+.chat-app #chat-sidebar #groups-list > *:hover,
+.chat-app #chat-sidebar #users-list > *:hover {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(130, 180, 255, 0.30),
+            rgba(35, 65, 115, 0.45),
+            rgba(10, 20, 40, 0.65)
+        ) !important;
+}
+
+/* Preserve blue highlighting for selected chats */
+.chat-app #chat-sidebar #groups-list > *.active,
+.chat-app #chat-sidebar #users-list > *.active,
+.chat-app #chat-sidebar #groups-list > *.selected,
+.chat-app #chat-sidebar #users-list > *.selected {
+    background:
+        linear-gradient(
+            145deg,
+            #378bff,
+            #1554b9 55%,
+            #082c70
+        ) !important;
+
+    color: #ffffff;
+}
+
+/* Maintain readable sidebar text */
+.chat-app #chat-sidebar {
+    color: #f1f5ff;
+}
+
+
+/* BLACK PILL INCOMING CALL DESIGN */
+
+.blackpill-incoming-call {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, 0.78);
+
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.blackpill-incoming-call[hidden] {
+    display: none !important;
+}
+
+.incoming-call-card {
+    width: min(420px, 100%);
+    padding: 48px 28px 42px;
+
+    text-align: center;
+    color: #ffffff;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(210, 230, 255, 0.20) 0%,
+            rgba(45, 65, 95, 0.38) 12%,
+            rgba(8, 13, 24, 0.98) 40%,
+            rgba(3, 7, 15, 0.98) 80%,
+            rgba(85, 135, 205, 0.25) 100%
+        );
+
+    border: 1px solid rgba(180, 215, 255, 0.42);
+    border-radius: 32px;
+
+    box-shadow:
+        inset 0 2px 4px rgba(225, 240, 255, 0.28),
+        inset 0 -2px 6px rgba(80, 140, 230, 0.18),
+        0 25px 80px rgba(0, 0, 0, 0.75),
+        0 0 35px rgba(45, 115, 230, 0.16);
+}
+
+.incoming-call-avatar {
+    width: 110px;
+    height: 110px;
+
+    margin: 0 auto 24px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 54px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #4d85d2,
+            #172b4b 55%,
+            #080f1e
+        );
+
+    border: 2px solid rgba(210, 230, 255, 0.55);
+    border-radius: 50%;
+
+    box-shadow:
+        inset 0 3px 8px rgba(255, 255, 255, 0.25),
+        0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+#incoming-caller-name {
+    margin: 0 0 10px;
+    color: #ffffff;
+    font-size: 27px;
+    overflow-wrap: anywhere;
+}
+
+#incoming-call-type {
+    margin: 0 0 12px;
+    color: #a9caff;
+    font-size: 17px;
+}
+
+.incoming-call-status {
+    color: #c2d1e6;
+    font-size: 14px;
+}
+
+.incoming-call-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: 24px;
+
+    margin-top: 42px;
+}
+
+.incoming-call-button {
+    width: 86px;
+    height: 86px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.48);
+
+    color: white;
+    font-size: 36px;
+
+    cursor: pointer;
+
+    box-shadow:
+        inset 0 5px 8px rgba(255, 255, 255, 0.35),
+        inset 0 -7px 12px rgba(0, 0, 0, 0.30),
+        0 8px 22px rgba(0, 0, 0, 0.45);
+
+    transition: transform 0.2s, filter 0.2s;
+}
+
+.incoming-call-button:hover {
+    transform: scale(1.08);
+    filter: brightness(1.15);
+}
+
+.incoming-call-button:active {
+    transform: scale(0.95);
+}
+
+.incoming-call-button.accept {
+    background:
+        linear-gradient(
+            145deg,
+            #70ff9c,
+            #16b94f 45%,
+            #076c2b
+        );
+}
+
+.incoming-call-button.reject {
+    background:
+        linear-gradient(
+            145deg,
+            #ff8585,
+            #e32636 45%,
+            #850b1c
+        );
+}
+
+.incoming-call-labels {
+    display: flex;
+    justify-content: space-evenly;
+    gap: 24px;
+
+    margin-top: 14px;
+
+    color: #dce7f8;
+    font-size: 15px;
+}
+
+.incoming-call-labels span {
+    width: 86px;
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .incoming-call-card {
+        padding: 38px 20px;
+        border-radius: 26px;
+    }
+
+    .incoming-call-button {
+        width: 76px;
+        height: 76px;
+    }
+
+    .incoming-call-labels span {
+        width: 76px;
+    }
+}
+
+
+/* BLACK PILL MACOS GLASS DIALOG */
+
+.blackpill-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(10, 18, 32, 0.25);
+
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+}
+
+.blackpill-dialog-overlay[hidden] {
+    display: none !important;
+}
+
+.blackpill-dialog {
+    width: min(370px, 100%);
+    overflow: hidden;
+
+    color: #334155;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.88),
+            rgba(221, 231, 247, 0.79) 48%,
+            rgba(184, 203, 230, 0.80)
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 19px;
+
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.95),
+        inset 0 -2px 8px rgba(100, 125, 165, 0.15),
+        0 18px 55px rgba(0, 0, 0, 0.30),
+        0 3px 10px rgba(50, 75, 115, 0.20);
+
+    backdrop-filter: blur(30px) saturate(150%);
+    -webkit-backdrop-filter: blur(30px) saturate(150%);
+}
+
+.blackpill-dialog-header {
+    height: 37px;
+    display: flex;
+    align-items: center;
+    padding: 0 13px;
+
+    background: rgba(255, 255, 255, 0.15);
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.30);
+}
+
+.blackpill-dialog-dots {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.blackpill-dialog-dots span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.50);
+}
+
+.blackpill-dialog-dots .dot-red {
+    background: #ff777c;
+}
+
+.blackpill-dialog-dots .dot-yellow {
+    background: #ffd477;
+}
+
+.blackpill-dialog-dots .dot-green {
+    background: #75d99a;
+}
+
+.blackpill-dialog-content {
+    padding: 24px 24px 29px;
+    text-align: center;
+}
+
+#blackpill-dialog-title {
+    margin: 0 0 12px;
+
+    color: #26384f;
+    font-size: 17px;
+    font-weight: 650;
+}
+
+#blackpill-dialog-message {
+    margin: 0;
+
+    color: #43536b;
+    font-size: 14px;
+    line-height: 1.6;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+#blackpill-dialog-input {
+    width: 100%;
+    box-sizing: border-box;
+
+    margin-top: 20px;
+    padding: 11px 13px;
+
+    color: #24364e;
+    background: rgba(255, 255, 255, 0.60);
+
+    border: 1px solid rgba(120, 150, 190, 0.45);
+    border-radius: 9px;
+
+    outline: none;
+    font-size: 14px;
+}
+
+#blackpill-dialog-input:focus {
+    border-color: #7ba7df;
+
+    box-shadow:
+        0 0 0 3px rgba(85, 145, 225, 0.15);
+}
+
+#blackpill-dialog-input[hidden] {
+    display: none !important;
+}
+
+.blackpill-dialog-actions {
+    display: flex;
+    min-height: 49px;
+
+    border-top: 1px solid rgba(125, 150, 185, 0.28);
+}
+
+.blackpill-dialog-actions button {
+    flex: 1;
+    min-height: 49px;
+
+    padding: 12px 16px;
+
+    color: #40536d;
+    background: rgba(255, 255, 255, 0.13);
+
+    border: none;
+    border-radius: 0;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.blackpill-dialog-actions button + button {
+    border-left: 1px solid rgba(125, 150, 185, 0.28);
+}
+
+.blackpill-dialog-actions button:hover {
+    background: rgba(255, 255, 255, 0.43);
+}
+
+.blackpill-dialog-actions button:active {
+    background: rgba(120, 165, 225, 0.20);
+}
+
+.blackpill-dialog-actions button:focus-visible {
+    outline: 2px solid #548cce;
+    outline-offset: -3px;
+}
+
+.blackpill-dialog-actions button[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 480px) {
+    .blackpill-dialog {
+        width: min(340px, 92vw);
+        border-radius: 17px;
+    }
+
+    .blackpill-dialog-content {
+        padding: 22px 19px 26px;
+    }
+}
+
+
+/* BLACK PILL 3X3 CALL CONTROLS */
+
+#call-media-panel .webrtc-panel-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 24px 16px;
+
+    background: transparent;
+}
+
+#call-media-panel .webrtc-panel-title {
+    color: #ffffff;
+    font-size: 17px;
+    font-weight: 600;
+    text-align: center;
+}
+
+#call-media-panel .blackpill-call-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 76px);
+    gap: 22px;
+
+    justify-content: center;
+    align-items: center;
+
+    width: 100%;
+    max-width: 330px;
+
+    margin: 0 auto;
+}
+
+#call-media-panel .blackpill-call-controls .call-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 76px;
+    height: 76px;
+    min-width: 76px;
+    min-height: 76px;
+
+    padding: 0;
+
+    border: none;
+    border-radius: 50%;
+
+    font-size: 32px;
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+#call-media-panel .blackpill-call-controls .call-control:hover {
+    transform: scale(1.07);
+}
+
+#call-media-panel .blackpill-call-controls .call-control:active {
+    transform: scale(0.94);
+}
+
+#call-media-panel .blackpill-call-controls .call-control:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 4px;
+}
+
+/* GREEN ANSWER */
+
+#call-media-panel .blackpill-call-controls .green {
+    background: #00df00;
+    color: #ffffff;
+}
+
+/* RED HANG UP */
+
+#call-media-panel .blackpill-call-controls .red,
+#call-media-panel #panel-hangup-button {
+    position: static;
+
+    width: 76px;
+    height: 76px;
+    min-width: 76px;
+    min-height: 76px;
+
+    padding: 0;
+    margin: 0;
+
+    border: none;
+    border-radius: 50%;
+
+    background: #ff2635;
+    color: #ffffff;
+
+    font-size: 38px;
+    box-shadow: none;
+}
+
+/* BLUE VIDEO */
+
+#call-media-panel .blackpill-call-controls .blue {
+    background: #1999ee;
+    color: #ffffff;
+}
+
+/* WHITE CONTROLS */
+
+#call-media-panel .blackpill-call-controls .white {
+    background: #f1f1f1;
+    color: #222222;
+}
+
+/* DARK CONTROLS */
+
+#call-media-panel .blackpill-call-controls .dark {
+    background: #303030;
+    color: #ffffff;
+}
+
+/* RESPONSIVE MOBILE LAYOUT */
+
+@media (max-width: 480px) {
+
+    #call-media-panel .blackpill-call-controls {
+        grid-template-columns: repeat(3, 68px);
+        gap: 16px;
+    }
+
+    #call-media-panel .blackpill-call-controls .call-control,
+    #call-media-panel #panel-hangup-button {
+        width: 68px;
+        height: 68px;
+        min-width: 68px;
+        min-height: 68px;
+
+        font-size: 28px;
+    }
+
+    #call-media-panel .webrtc-panel-header {
+        padding: 20px 10px;
+    }
+}

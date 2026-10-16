@@ -13,6 +13,36 @@ from .models import User, Message, MessageReaction
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/chat")
 
+# Contact-sharing validation
+def validate_shared_contact(name, phone):
+    import re
+
+    if not isinstance(name, str) or not isinstance(phone, str):
+        return None, "Contact name and phone number are required."
+
+    name = name.strip()
+    phone = phone.strip()
+
+    if not 1 <= len(name) <= 100:
+        return None, "Contact name must be 1–100 characters."
+
+    if not 3 <= len(phone) <= 25:
+        return None, "Phone number must be 3–25 characters."
+
+    if any(ord(char) < 32 or ord(char) == 127 for char in name):
+        return None, "Contact name contains invalid characters."
+
+    if not re.fullmatch(r"\+?[0-9][0-9 ()-]*", phone):
+        return None, "Invalid phone number format."
+
+    if not 3 <= sum(char.isdigit() for char in phone) <= 15:
+        return None, "Phone number must contain 3–15 digits."
+
+    return {"name": name, "phone": phone}, None
+
+
+
+
 
 CHAT_IMAGE_UPLOAD_FOLDER = os.path.join(
     os.path.dirname(__file__),
@@ -46,6 +76,57 @@ ALLOWED_AUDIO_EXTENSIONS = {
 
 MAX_AUDIO_SIZE = 15 * 1024 * 1024
 
+# Audio files shared through the attachment menu.
+# These limits are separate from voice-note restrictions.
+ALLOWED_SHARED_AUDIO_EXTENSIONS = {
+    "mp3",
+    "wav",
+    "m4a",
+    "ogg"
+}
+
+MAX_SHARED_AUDIO_SIZE = 20 * 1024 * 1024
+
+
+def allowed_shared_audio(filename):
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_SHARED_AUDIO_EXTENSIONS
+    )
+
+
+
+
+def valid_shared_audio_signature(file, extension):
+    header = file.stream.read(16)
+    file.stream.seek(0)
+
+    if extension == "mp3":
+        return (
+            header.startswith(b"ID3")
+            or (
+                len(header) >= 2
+                and header[0] == 0xFF
+                and (header[1] & 0xE0) == 0xE0
+                and (header[1] & 0x06) != 0
+            )
+        )
+
+    if extension == "wav":
+        return (
+            len(header) >= 12
+            and header[:4] == b"RIFF"
+            and header[8:12] == b"WAVE"
+        )
+
+    if extension == "ogg":
+        return header.startswith(b"OggS")
+
+    if extension == "m4a":
+        return len(header) >= 8 and header[4:8] == b"ftyp"
+
+    return False
 
 
 CHAT_VIDEO_UPLOAD_FOLDER = os.path.join(
@@ -60,6 +141,39 @@ ALLOWED_VIDEO_EXTENSIONS = {
 }
 
 MAX_VIDEO_SIZE = 50 * 1024 * 1024
+
+
+
+# Document upload configuration
+CHAT_DOCUMENT_UPLOAD_FOLDER = os.path.join(
+    os.path.dirname(__file__),
+    "uploads",
+    "chat_documents"
+)
+
+os.makedirs(
+    CHAT_DOCUMENT_UPLOAD_FOLDER,
+    exist_ok=True
+)
+
+ALLOWED_DOCUMENT_EXTENSIONS = {
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "txt"
+}
+
+MAX_DOCUMENT_SIZE = 20 * 1024 * 1024
+
+
+def allowed_document(filename):
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower()
+        in ALLOWED_DOCUMENT_EXTENSIONS
+    )
 
 
 def allowed_video(filename):
@@ -206,6 +320,86 @@ def users():
     return jsonify({
         "users": users_data
     }), 200
+
+
+
+@chat_bp.route("/send-contact", methods=["POST"])
+@login_required
+def send_contact():
+    import json
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "error": "A JSON object is required."
+        }), 400
+
+    try:
+        receiver_id = int(data.get("receiver_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid receiver ID."}), 400
+
+    if receiver_id == current_user.id:
+        return jsonify({
+            "error": "You cannot send a contact to yourself."
+        }), 400
+
+    receiver = db.session.get(User, receiver_id)
+
+    if receiver is None:
+        return jsonify({"error": "Receiver not found."}), 404
+
+    contact, error = validate_shared_contact(
+        data.get("name"),
+        data.get("phone")
+    )
+
+    if error:
+        return jsonify({"error": error}), 400
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver.id,
+        content=json.dumps(contact, ensure_ascii=False),
+        message_type="contact"
+    )
+
+    db.session.add(message)
+    db.session.commit()
+
+    message_data = {
+        "id": message.id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "message_type": "contact",
+        "contact_name": contact["name"],
+        "contact_phone": contact["phone"],
+        "created_at": message.created_at.isoformat(),
+        "read_at": None,
+        "edited_at": None,
+        "reply_to": None,
+        "reactions": []
+    }
+
+    socketio.emit(
+        "new_message",
+        message_data,
+        to=f"user_{receiver.id}"
+    )
+
+    socketio.emit(
+        "message_sent",
+        message_data,
+        to=f"user_{current_user.id}"
+    )
+
+    return jsonify({
+        "message": "Contact shared successfully.",
+        "data": message_data
+    }), 201
 
 
 @chat_bp.route("/send", methods=["POST"])
@@ -614,6 +808,145 @@ def send_image():
     }), 201
 
 
+
+@chat_bp.route("/send-document", methods=["POST"])
+@login_required
+def send_document():
+    receiver_id = request.form.get("receiver_id")
+    document = request.files.get("document")
+
+    try:
+        receiver_id = int(receiver_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid receiver ID."}), 400
+
+    if receiver_id == current_user.id:
+        return jsonify({"error": "Cannot send to yourself."}), 400
+
+    receiver = db.session.get(User, receiver_id)
+
+    if receiver is None:
+        return jsonify({"error": "Receiver not found."}), 404
+
+    if document is None or not document.filename:
+        return jsonify({"error": "Document required."}), 400
+
+    original_name = secure_filename(document.filename)
+
+    if not allowed_document(original_name):
+        return jsonify({"error": "Unsupported document type."}), 400
+
+    document.stream.seek(0, os.SEEK_END)
+    file_size = document.stream.tell()
+    document.stream.seek(0)
+
+    if file_size <= 0 or file_size > MAX_DOCUMENT_SIZE:
+        return jsonify({
+            "error": "Document must be 20 MB or smaller."
+        }), 400
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+
+    # Basic file signature validation
+    header = document.stream.read(8)
+    document.stream.seek(0)
+
+    if extension == "pdf" and not header.startswith(b"%PDF-"):
+        return jsonify({"error": "Invalid PDF file."}), 400
+
+    if extension in {"docx", "xlsx"} and not header.startswith(b"PK"):
+        return jsonify({"error": "Invalid Office document."}), 400
+
+    stored_filename = f"{uuid.uuid4().hex}.{extension}"
+    saved_path = os.path.join(
+        CHAT_DOCUMENT_UPLOAD_FOLDER,
+        stored_filename
+    )
+
+    document.save(saved_path)
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver.id,
+        content=original_name,
+        message_type="document",
+        document_filename=stored_filename,
+        document_original_name=original_name,
+        document_size=file_size
+    )
+
+    try:
+        db.session.add(message)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+        if os.path.exists(saved_path):
+            os.remove(saved_path)
+
+        raise
+
+    message_data = {
+        "id": message.id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "message_type": "document",
+        "document_original_name": original_name,
+        "document_size": file_size,
+        "document_url": f"/chat/documents/{message.id}",
+        "created_at": message.created_at.isoformat(),
+        "read_at": None,
+        "edited_at": None,
+        "reply_to": None,
+        "reactions": []
+    }
+
+    socketio.emit(
+        "new_message",
+        message_data,
+        to=f"user_{receiver.id}"
+    )
+
+    socketio.emit(
+        "message_sent",
+        message_data,
+        to=f"user_{current_user.id}"
+    )
+
+    return jsonify({
+        "message": "Document sent successfully.",
+        "data": message_data
+    }), 201
+
+
+
+@chat_bp.route("/documents/<int:message_id>", methods=["GET"])
+@login_required
+def download_document(message_id):
+    message = db.session.get(Message, message_id)
+
+    if message is None or message.message_type != "document":
+        return jsonify({"error": "Document not found."}), 404
+
+    if current_user.id not in (
+        message.sender_id,
+        message.receiver_id
+    ):
+        return jsonify({"error": "Access denied."}), 403
+
+    if not message.document_filename:
+        return jsonify({"error": "Document unavailable."}), 404
+
+    return send_from_directory(
+        CHAT_DOCUMENT_UPLOAD_FOLDER,
+        message.document_filename,
+        as_attachment=True,
+        download_name=message.document_original_name
+    )
+
+
 @chat_bp.route("/send-audio", methods=["POST"])
 @login_required
 def send_audio():
@@ -776,6 +1109,116 @@ def send_audio():
     }), 201
 
 
+
+@chat_bp.route("/send-shared-audio", methods=["POST"])
+@login_required
+def send_shared_audio():
+    receiver_id = request.form.get("receiver_id")
+    audio = request.files.get("audio")
+
+    try:
+        receiver_id = int(receiver_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid receiver ID."}), 400
+
+    if receiver_id == current_user.id:
+        return jsonify({"error": "Cannot send audio to yourself."}), 400
+
+    receiver = db.session.get(User, receiver_id)
+
+    if receiver is None:
+        return jsonify({"error": "Receiver not found."}), 404
+
+    if audio is None or not audio.filename:
+        return jsonify({"error": "Audio file is required."}), 400
+
+    original_name = secure_filename(audio.filename)
+
+    if not allowed_shared_audio(original_name):
+        return jsonify({
+            "error": "Supported formats: MP3, WAV, M4A, OGG."
+        }), 400
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+
+    audio.stream.seek(0, os.SEEK_END)
+    size = audio.stream.tell()
+    audio.stream.seek(0)
+
+    if not 0 < size <= MAX_SHARED_AUDIO_SIZE:
+        return jsonify({
+            "error": "Audio must be between 1 byte and 20 MB."
+        }), 400
+
+    if not valid_shared_audio_signature(audio, extension):
+        return jsonify({"error": "Invalid audio file."}), 400
+
+    os.makedirs(CHAT_AUDIO_UPLOAD_FOLDER, exist_ok=True)
+
+    stored_filename = f"{uuid.uuid4().hex}.{extension}"
+    audio_path = os.path.join(
+        CHAT_AUDIO_UPLOAD_FOLDER,
+        stored_filename
+    )
+
+    audio.save(audio_path)
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=receiver.id,
+        content="Shared audio",
+        message_type="audio",
+        audio_filename=stored_filename,
+        audio_original_name=original_name,
+        audio_duration_ms=None
+    )
+
+    try:
+        db.session.add(message)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+
+        raise
+
+    message_data = {
+        "id": message.id,
+        "sender_id": message.sender_id,
+        "sender_username": current_user.username,
+        "receiver_id": message.receiver_id,
+        "content": message.content,
+        "message_type": "audio",
+        "audio_url": f"/chat/audio/{stored_filename}",
+        "audio_original_name": original_name,
+        "audio_duration_ms": None,
+        "created_at": message.created_at.isoformat(),
+        "read_at": None,
+        "edited_at": None,
+        "reply_to": None,
+        "reactions": []
+    }
+
+    socketio.emit(
+        "new_message",
+        message_data,
+        to=f"user_{receiver.id}"
+    )
+
+    socketio.emit(
+        "message_sent",
+        message_data,
+        to=f"user_{current_user.id}"
+    )
+
+    return jsonify({
+        "message": "Audio shared successfully.",
+        "data": message_data
+    }), 201
+
+
 @chat_bp.route("/send-video", methods=["POST"])
 @login_required
 def send_video():
@@ -924,6 +1367,7 @@ def conversation(user_id):
                 "receiver_id": message.receiver_id,
                 "content": message.content,
                 "message_type": message.message_type,
+                "is_forwarded": bool(message.is_forwarded),
                 "image_url": (
                     f"/chat/images/{message.image_filename}"
                     if message.image_filename
@@ -943,6 +1387,14 @@ def conversation(user_id):
                     else None
                 ),
                 "video_original_name": message.video_original_name,
+                "document_url": (
+                    f"/chat/documents/{message.id}"
+                    if message.message_type == "document"
+                    and message.document_filename
+                    else None
+                ),
+                "document_original_name": message.document_original_name,
+                "document_size": message.document_size,
                 "created_at": message.created_at.isoformat(),
                 "read_at": (
                     message.read_at.isoformat()
@@ -2032,6 +2484,10 @@ def socket_disconnect():
         return
 
     user_id = current_user.id
+
+    # Remove this browser connection from active group calls.
+    from .groups import cleanup_disconnected_group_calls
+    cleanup_disconnected_group_calls(user_id, request.sid)
 
     if user_id in online_users:
         online_users[user_id] -= 1

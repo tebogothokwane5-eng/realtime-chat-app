@@ -12,6 +12,23 @@
     >
 
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/webrtc-responsive.css') }}"
+>
+
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/chat-sidebar.css', v='unified-green-status-1') }}"
+>
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/blackpill-modern.css', v='blackpill-call-grid-1') }}"
+>
+
 </head>
 
 <body class="chat-body">
@@ -19,7 +36,7 @@
     <div class="chat-app">
 
         <!-- Sidebar -->
-        <aside class="chat-sidebar">
+        <aside class="chat-sidebar" id="chat-sidebar">
 
             <div class="sidebar-header">
                 <div>
@@ -35,6 +52,167 @@
                     Logout
                 </button>
             </div>
+
+            <!-- Black Pill Navigation -->
+            <nav class="blackpill-navigation" aria-label="Main navigation">
+                <button
+                    id="chats-tab-button"
+                    class="blackpill-nav-button active"
+                    type="button"
+                    aria-selected="true"
+                >
+                    💬 Chats
+                </button>
+
+                <button
+                    id="status-tab-button"
+                    class="blackpill-nav-button"
+                    type="button"
+                    aria-selected="false"
+                >
+                    ◉ Status
+                </button>
+            </nav>
+
+            <!-- BLACK PILL STATUS PANEL -->
+            <section
+                id="status-panel"
+                class="blackpill-status-panel"
+                hidden
+                aria-label="Status updates"
+            >
+                <div class="status-section-header">
+                    <h3>My Status</h3>
+
+                    <button
+                        id="add-status-button"
+                        type="button"
+                        class="create-group-button"
+                    >
+                        + Add Status
+                    </button>
+                </div>
+
+
+                <!-- BLACK PILL TEXT STATUS FORM -->
+                <form id="create-status-form" hidden>
+
+                    <label for="status-content">
+                        What's on your mind?
+                    </label>
+
+                    <textarea
+                        id="status-content"
+                        name="content"
+                        maxlength="1000"
+                        rows="4"
+                        placeholder="Write your status..."
+                    ></textarea>
+
+
+                    <!-- BLACK PILL PHOTO STATUS INPUT -->
+                    <label for="status-photo">
+                        Add a photo (optional)
+                    </label>
+
+                    <input
+                        type="file"
+                        id="status-photo"
+                        name="photo"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                    >
+
+                    <small>
+                        JPG, PNG, GIF or WebP. Maximum 10 MB.
+                    </small>
+
+
+                    <!-- BLACK PILL VIDEO STATUS INPUT -->
+                    <label for="status-video">
+                        Add a video (optional)
+                    </label>
+
+                    <input
+                        type="file"
+                        id="status-video"
+                        name="video"
+                        accept="video/mp4,video/webm,.mp4,.webm"
+                    >
+
+                    <small>
+                        MP4 or WebM. Maximum 50 MB and 60 seconds.
+                    </small>
+
+                    <!-- BLACK PILL AUDIO STATUS INPUT -->
+                    <label for="status-audio">
+                        Add audio (optional)
+                    </label>
+
+                    <input
+                        type="file"
+                        id="status-audio"
+                        name="audio"
+                        accept="audio/mpeg,audio/wav,audio/mp4,audio/webm,.mp3,.wav,.m4a,.webm"
+                    >
+
+                    <small>
+                        MP3, WAV, M4A or WebM. Maximum 20 MB and 5 minutes.
+                    </small>
+
+                    <label for="status-privacy">
+                        Who can see your status?
+                    </label>
+
+                    <select id="status-privacy" name="privacy">
+                        <option value="contacts">
+                            My Contacts
+                        </option>
+
+                        <option value="everyone">
+                            Everyone
+                        </option>
+
+                        <option value="selected">
+                            Selected Contacts
+                        </option>
+                    </select>
+
+                    <div id="status-selected-contacts" hidden>
+                        <p>
+                            Select the contacts who can view this status.
+                        </p>
+
+                        <div id="status-contact-options"></div>
+                    </div>
+
+                    <button type="submit" id="publish-status-button">
+                        Publish Status
+                    </button>
+
+                    <button type="button" id="cancel-status-button">
+                        Cancel
+                    </button>
+
+                    <p id="status-form-message" role="status"></p>
+
+                </form>
+
+<div id="my-status-list" class="users-list">
+                    <p class="empty-text">
+                        You haven't posted a status yet.
+                    </p>
+                </div>
+
+                <div class="status-section-header">
+                    <h3>Recent Updates</h3>
+                </div>
+
+                <div id="recent-status-list" class="users-list">
+                    <p class="empty-text">
+                        No recent status updates.
+                    </p>
+                </div>
+            </section>
 
             <!-- Group Chats -->
             <div class="group-chat-section">
@@ -70,6 +248,21 @@
         <main class="conversation">
 
             <div class="conversation-header">
+                <button
+                    id="sidebar-toggle-button"
+                    class="sidebar-toggle-button"
+                    type="button"
+                    title="Open chats menu"
+                    aria-label="Open chats menu"
+                    aria-expanded="false"
+                    aria-controls="chat-sidebar"
+                >
+                    ☰ Chats
+                </button>
+
+
+
+
                 <div>
                     <h2 id="conversation-name">
                         Select a conversation
@@ -211,10 +404,38 @@
                             </button>
 
                             <button
+                                id="media-camera-option"
+                                type="button"
+                            >
+                                📸 Camera
+                            </button>
+
+                            <button
                                 id="media-video-option"
                                 type="button"
                             >
                                 🎬 Send Video
+                            </button>
+
+                            <button
+                                id="media-document-option"
+                                type="button"
+                            >
+                                📄 Send Document
+                            </button>
+
+                            <button
+                                id="media-audio-option"
+                                type="button"
+                            >
+                                🎵 Send Audio
+                            </button>
+
+                            <button
+                                id="media-contact-option"
+                                type="button"
+                            >
+                                👤 Share Contact
                             </button>
                         </div>
 
@@ -236,6 +457,14 @@
                         id="image-input"
                         type="file"
                         accept="image/png,image/jpeg,image/gif,image/webp"
+                        hidden
+                    >
+
+                    <input
+                        id="camera-input"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
                         hidden
                     >
 
@@ -333,6 +562,90 @@
 
 <!-- WebRTC audio and video elements -->
 <div id="call-media-panel" hidden>
+    <div class="webrtc-panel-header">
+    <span class="webrtc-panel-title">
+        Voice / Video Call
+    </span>
+
+    <!-- BLACK PILL CIRCULAR CALL CONTROLS -->
+    <div class="blackpill-call-controls">
+
+        <button id="call-answer-control"
+                class="call-control green"
+                type="button"
+                title="Answer call"
+                aria-label="Answer call">
+            📞
+        </button>
+
+        <button id="panel-hangup-button"
+                class="call-control red"
+                type="button"
+                title="Hang up"
+                aria-label="Hang up"
+                onclick="document.getElementById('end-call-button').click()">
+            ☎
+        </button>
+
+        <button id="call-video-control"
+                class="call-control blue"
+                type="button"
+                title="Video"
+                aria-label="Video">
+            📹
+        </button>
+
+        <button id="call-microphone-control"
+                class="call-control white"
+                type="button"
+                title="Microphone"
+                aria-label="Microphone">
+            🎤
+        </button>
+
+        <button id="call-mute-control"
+                class="call-control white"
+                type="button"
+                title="Mute"
+                aria-label="Mute">
+            🔇
+        </button>
+
+        <button id="call-camera-off-control"
+                class="call-control white"
+                type="button"
+                title="Camera off"
+                aria-label="Camera off">
+            📷
+        </button>
+
+        <button id="call-more-control"
+                class="call-control dark"
+                type="button"
+                title="More options"
+                aria-label="More options">
+            •••
+        </button>
+
+        <button id="call-add-participant-control"
+                class="call-control dark"
+                type="button"
+                title="Add participant"
+                aria-label="Add participant">
+            👤+
+        </button>
+
+        <button id="call-chat-control"
+                class="call-control dark"
+                type="button"
+                title="Open chat"
+                aria-label="Open chat">
+            💬
+        </button>
+
+    </div>
+</div>
+
     <div id="webrtc-status" style="color: white; padding: 8px;">
         WebRTC: waiting
     </div>
@@ -356,7 +669,195 @@
 </div>
 
     <script
-        src="{{ url_for('static', filename='js/chat.js') }}"
+        defer src="{{ url_for('static', filename='js/chat.js', v='blackpill-call-controls-1') }}"
     ></script>
+
+<script
+    src="{{ url_for('static', filename='js/chat-sidebar.js') }}"
+    defer
+></script>
+
+
+<!-- Camera preview window -->
+<div id="camera-modal" hidden
+     style="position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,0.88);
+            display:none;align-items:center;
+            justify-content:center;">
+
+    <div style="background:#202020;color:white;
+                padding:20px;border-radius:12px;
+                width:min(95%,500px);text-align:center;">
+
+        <h3>📸 Camera</h3>
+
+        <video id="camera-preview"
+               autoplay
+               playsinline
+               muted
+               style="width:100%;border-radius:8px;">
+        </video>
+
+        <canvas id="camera-canvas" hidden></canvas>
+
+        <img id="camera-photo-preview"
+             alt="Captured photo"
+             hidden
+             style="width:100%;border-radius:8px;">
+
+        <div style="display:flex;gap:8px;
+                    justify-content:center;
+                    flex-wrap:wrap;margin-top:15px;">
+
+            <button id="camera-capture-button" type="button">
+                📸 Take Photo
+            </button>
+
+            <button id="camera-retake-button" type="button" hidden>
+                🔄 Retake
+            </button>
+
+            <button id="camera-send-button" type="button" hidden>
+                📤 Send Photo
+            </button>
+
+            <button id="camera-cancel-button" type="button">
+                ❌ Cancel
+            </button>
+
+        </div>
+    </div>
+</div>
+
+
+<script
+    src="{{ url_for('static', filename='js/status.js', v='blackpill-glass-status-1') }}"
+    defer
+></script>
+
+
+<!-- BLACK PILL INCOMING CALL SCREEN -->
+<div
+    id="incoming-call-screen"
+    class="blackpill-incoming-call"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="incoming-caller-name"
+    hidden
+>
+    <div class="incoming-call-card">
+
+        <div class="incoming-call-avatar">
+            <span>👤</span>
+        </div>
+
+        <h2 id="incoming-caller-name">
+            Incoming Call
+        </h2>
+
+        <p id="incoming-call-type">
+            Voice Call
+        </p>
+
+        <p class="incoming-call-status">
+            Black Pill is calling...
+        </p>
+
+        <div class="incoming-call-actions">
+
+            <button
+                id="accept-incoming-call"
+                type="button"
+                class="incoming-call-button accept"
+                title="Answer call"
+                aria-label="Answer call"
+            >
+                📞
+            </button>
+
+            <button
+                id="reject-incoming-call"
+                type="button"
+                class="incoming-call-button reject"
+                title="Decline call"
+                aria-label="Decline call"
+            >
+                📵
+            </button>
+
+        </div>
+
+        <div class="incoming-call-labels">
+            <span>Answer</span>
+            <span>Decline</span>
+        </div>
+
+    </div>
+</div>
+
+
+<script
+    defer
+    src="{{ url_for('static', filename='js/blackpill-dialog.js', v='glass-dialog-2') }}"
+></script>
+
+<!-- BLACK PILL GLASS DIALOG -->
+<div
+    id="blackpill-dialog-overlay"
+    class="blackpill-dialog-overlay"
+    hidden
+>
+    <div
+        class="blackpill-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="blackpill-dialog-title"
+        aria-describedby="blackpill-dialog-message"
+    >
+
+
+
+        <div class="blackpill-dialog-content">
+
+            <h3 id="blackpill-dialog-title">
+                Black Pill
+            </h3>
+
+            <p id="blackpill-dialog-message"></p>
+
+            <input
+                id="blackpill-dialog-input"
+                type="text"
+                autocomplete="off"
+                hidden
+            >
+
+        </div>
+
+        <div class="blackpill-dialog-actions">
+
+            <button
+                id="blackpill-dialog-cancel"
+                type="button"
+                hidden
+            >
+                Cancel
+            </button>
+
+            <button
+                id="blackpill-dialog-ok"
+                type="button"
+            >
+                OK
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+
+
+
 </body>
 </html>

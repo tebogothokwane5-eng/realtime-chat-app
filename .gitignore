@@ -11,3 +11,10 @@ cookies.txt
 
 # User-uploaded chat files
 app/uploads/
+
+# Private Status media uploads
+/app/uploads/statuses/
+
+# Local development backups
+*.before_*
+*.before-*
